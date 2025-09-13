@@ -58,13 +58,13 @@ After running `npm run dev:full`:
 
 ```bash
 # Get help
-node scripts/setup.js --help
+node scripts/setup.mjs --help
 
 # Verbose logging
-node scripts/setup.js --fresh --verbose
+node scripts/setup.mjs --fresh --verbose
 
 # Setup without starting server
-node scripts/setup.js --no-start
+node scripts/setup.mjs --no-start
 ```
 
 ## 🛠️ Troubleshooting

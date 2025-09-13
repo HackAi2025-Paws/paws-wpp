@@ -1,7 +1,11 @@
 #!/usr/bin/env node
 
-const { spawn } = require('child_process');
-const path = require('path');
+import { spawn } from 'child_process';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Parse command line arguments
 const args = process.argv.slice(2);
@@ -82,7 +86,6 @@ async function main() {
 
     // Check if Redis is healthy
     try {
-      const { spawn } = require('child_process');
       await new Promise((resolve, reject) => {
         const check = spawn('docker', ['exec', 'paws-wpp-redis', 'redis-cli', 'ping'], {
           stdio: 'pipe'

@@ -152,13 +152,22 @@ export class AgentLoop {
 
         const messages = this.sessionStore.transformToAnthropicMessages(session.messages);
 
+        // Debug log the messages being sent to Claude
+        console.log(`[${requestId}] Sending ${messages.length} messages to Claude`);
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`[${requestId}] Messages:`, JSON.stringify(messages, null, 2));
+        }
+
+        // Validate and potentially fix messages before sending
+        const validatedMessages = this.validateAndFixMessages(messages, requestId);
+
         const response = await anthropic.messages.create({
           model: 'claude-sonnet-4-20250514',
           system: SYSTEM_PROMPT,
           temperature: 0.3,
           max_tokens: 1500,
           tools,
-          messages,
+          messages: validatedMessages,
         });
 
         console.log(`[${requestId}] Claude response: ${response.usage?.input_tokens || 0} input, ${response.usage?.output_tokens || 0} output tokens`);
@@ -197,11 +206,24 @@ export class AgentLoop {
         for (const toolBlock of toolUseBlocks) {
           const toolResult = await this.executeTool(toolBlock, phone, requestId);
 
+          // Ensure tool result content is valid JSON string
+          let toolContent: string;
+          try {
+            toolContent = JSON.stringify(toolResult);
+            // Ensure the JSON is not empty
+            if (toolContent === '{}' || toolContent === 'null' || toolContent === 'undefined') {
+              toolContent = JSON.stringify({ ok: false, error: 'Empty tool result' });
+            }
+          } catch (error) {
+            console.error(`[${requestId}] Failed to serialize tool result:`, error);
+            toolContent = JSON.stringify({ ok: false, error: 'Failed to serialize tool result' });
+          }
+
           const toolMessage: ToolMessage = {
             role: 'tool',
             tool_name: toolBlock.name,
             tool_use_id: toolBlock.id,
-            content: JSON.stringify(toolResult)
+            content: toolContent
           };
 
           session = await this.sessionStore.append(phone, toolMessage);
@@ -321,6 +343,118 @@ export class AgentLoop {
         error: error instanceof Error ? error.message : 'Error desconocido en la herramienta'
       };
     }
+  }
+
+  private validateAndFixMessages(messages: Anthropic.MessageParam[], requestId: string): Anthropic.MessageParam[] {
+    const fixedMessages: Anthropic.MessageParam[] = [];
+
+    for (let i = 0; i < messages.length; i++) {
+      const message = messages[i];
+
+      // Skip messages with no content
+      if (!message.content) {
+        console.warn(`[${requestId}] Skipping message ${i} with no content`);
+        continue;
+      }
+
+      // Handle array content
+      if (Array.isArray(message.content)) {
+        // Skip empty arrays
+        if (message.content.length === 0) {
+          console.warn(`[${requestId}] Skipping message ${i} with empty content array`);
+          continue;
+        }
+
+        // Separate tool_result blocks from other content
+        const toolResults: Anthropic.ToolResultBlockParam[] = [];
+        const otherContent: Anthropic.ContentBlockParam[] = [];
+
+        for (const block of message.content) {
+          if (typeof block === 'object' && 'type' in block) {
+            if (block.type === 'tool_result') {
+              toolResults.push(block as Anthropic.ToolResultBlockParam);
+            } else if (block.type === 'text' && block.text?.trim()) {
+              otherContent.push(block);
+            }
+          }
+        }
+
+        // If we have tool results, they should be in separate messages
+        if (toolResults.length > 0 && otherContent.length > 0) {
+          console.warn(`[${requestId}] Separating tool results from text content in message ${i}`);
+
+          // Add text content first
+          fixedMessages.push({
+            role: message.role,
+            content: otherContent
+          });
+
+          // Add each tool result in its own message
+          for (const toolResult of toolResults) {
+            fixedMessages.push({
+              role: 'user', // Tool results are always user messages
+              content: [toolResult]
+            });
+          }
+        } else if (toolResults.length > 0) {
+          // Only tool results
+          fixedMessages.push({
+            role: 'user',
+            content: toolResults
+          });
+        } else if (otherContent.length > 0) {
+          // Only other content
+          fixedMessages.push({
+            role: message.role,
+            content: otherContent
+          });
+        }
+      } else {
+        fixedMessages.push(message);
+      }
+    }
+
+    this.validateMessages(fixedMessages, requestId);
+    return fixedMessages;
+  }
+
+  private validateMessages(messages: Anthropic.MessageParam[], requestId: string): void {
+    for (let i = 0; i < messages.length; i++) {
+      const message = messages[i];
+
+      // Check for empty content
+      if (!message.content) {
+        console.error(`[${requestId}] Message ${i} has no content:`, message);
+        throw new Error(`Message ${i} has empty content`);
+      }
+
+      // Check array content
+      if (Array.isArray(message.content)) {
+        if (message.content.length === 0) {
+          console.error(`[${requestId}] Message ${i} has empty content array:`, message);
+          throw new Error(`Message ${i} has empty content array`);
+        }
+
+        // Check each content block
+        for (let j = 0; j < message.content.length; j++) {
+          const block = message.content[j];
+          if (block.type === 'text' && (!block.text || !block.text.trim())) {
+            console.error(`[${requestId}] Message ${i}, block ${j} has empty text:`, block);
+            throw new Error(`Message ${i}, block ${j} has empty text`);
+          }
+        }
+      }
+
+      // Check role alternation
+      if (i > 0) {
+        const prevMessage = messages[i - 1];
+        if (prevMessage.role === message.role) {
+          console.warn(`[${requestId}] Messages ${i-1} and ${i} have same role: ${message.role}`);
+        }
+      }
+    }
+
+    console.log(`[${requestId}] Message validation passed for ${messages.length} messages`);
   }
 }
 

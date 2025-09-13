@@ -190,35 +190,110 @@ export class SessionStore {
 
   // Transform session messages to Anthropic wire format
   transformToAnthropicMessages(messages: SessionMessage[]): Anthropic.MessageParam[] {
-    return messages.map(msg => {
+    const result: Anthropic.MessageParam[] = [];
+
+    for (let i = 0; i < messages.length; i++) {
+      const msg = messages[i];
+
       switch (msg.role) {
         case 'user':
-          return {
+          // Ensure user message has non-empty content
+          if (!msg.content.trim()) {
+            console.warn('Skipping empty user message');
+            continue;
+          }
+
+          result.push({
             role: 'user',
             content: [{ type: 'text', text: msg.content }]
-          } as Anthropic.MessageParam;
+          });
+          break;
 
         case 'assistant':
-          return {
+          // Ensure assistant message has content
+          if (!msg.content || msg.content.length === 0) {
+            console.warn('Skipping empty assistant message');
+            continue;
+          }
+
+          result.push({
             role: 'assistant',
             content: msg.content
-          } as Anthropic.MessageParam;
+          });
+          break;
 
         case 'tool':
-          // Tool messages are handled as content blocks within messages
-          return {
+          // Tool results must be in their own user message
+          // Never mix tool results with other content types
+          result.push({
             role: 'user',
             content: [{
               type: 'tool_result',
               tool_use_id: msg.tool_use_id,
-              content: msg.content
+              content: msg.content || '{}'
             }]
-          } as Anthropic.MessageParam;
+          });
+          break;
 
         default:
-          throw new Error(`Unknown message role: ${(msg as SessionMessage).role}`);
+          console.warn(`Unknown message role: ${(msg as SessionMessage).role}`);
+          continue;
       }
+    }
+
+    // Ensure we don't end with consecutive messages of the same role
+    const cleanedResult = this.ensureAlternatingRoles(result);
+
+    // Ensure no empty messages
+    return cleanedResult.filter(msg => {
+      if (Array.isArray(msg.content)) {
+        return msg.content.length > 0 && msg.content.some(c =>
+          (c.type === 'text' && c.text.trim()) || c.type === 'tool_result'
+        );
+      }
+      return msg.content && msg.content.length > 0;
     });
+  }
+
+  private ensureAlternatingRoles(messages: Anthropic.MessageParam[]): Anthropic.MessageParam[] {
+    const result: Anthropic.MessageParam[] = [];
+    let lastRole: 'user' | 'assistant' | null = null;
+
+    for (const message of messages) {
+      if (message.role === lastRole) {
+        // Merge consecutive messages of the same role
+        const lastMessage = result[result.length - 1];
+        if (lastMessage) {
+          // Don't merge if either message contains tool_result blocks
+          const hasToolResult = (content: Anthropic.ContentBlockParam[] | string) => {
+            return Array.isArray(content) && content.some(block =>
+              typeof block === 'object' && 'type' in block && block.type === 'tool_result'
+            );
+          };
+
+          if (hasToolResult(lastMessage.content) || hasToolResult(message.content)) {
+            // Don't merge messages with tool results
+            result.push(message);
+          } else {
+            // Safe to merge text-only messages
+            const lastContent = Array.isArray(lastMessage.content)
+              ? lastMessage.content
+              : [{ type: 'text', text: lastMessage.content as string } as Anthropic.TextBlockParam];
+
+            const currentContent = Array.isArray(message.content)
+              ? message.content
+              : [{ type: 'text', text: message.content as string } as Anthropic.TextBlockParam];
+
+            lastMessage.content = [...lastContent, ...currentContent];
+          }
+        }
+      } else {
+        result.push(message);
+        lastRole = message.role;
+      }
+    }
+
+    return result;
   }
 
   // Check if message ID has been seen (for idempotency)
