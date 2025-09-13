@@ -1,5 +1,5 @@
 import { WhatsAppService } from './twilio'
-import { UserService } from './user-service'
+import { AgentService } from './agent-service'
 
 export interface ProcessedMessage {
   type: 'text' | 'audio' | 'media'
@@ -27,20 +27,14 @@ export class WhatsAppMessageHandler {
   private static async handleTextMessage(message: ProcessedMessage): Promise<void> {
     console.log(`Processing text: "${message.content}" from ${message.from}`)
 
-    const user = await UserService.findUserByPhone(message.from)
-
-    if (user && user.pets && user.pets.length > 0) {
-      const petsMessage = UserService.formatPetsMessage(user.pets)
-      await WhatsAppService.sendMessage(message.from, petsMessage)
-    } else if (user && user.pets && user.pets.length === 0) {
-      await WhatsAppService.sendMessage(
-        message.from,
-        "Aún no tienes mascotas registradas. ¿Te gustaría registrar una mascota? 🐾"
-      )
-    } else {
-      const registrationPrompt = UserService.formatRegistrationPrompt()
-      await WhatsAppService.sendMessage(message.from, registrationPrompt)
+    if (!message.content) {
+      await WhatsAppService.sendMessage(message.from, 'Lo siento, no pude entender tu mensaje.')
+      return
     }
+
+    // Use Claude agent to process the message
+    const response = await AgentService.processUserMessage(message.from, message.content)
+    await WhatsAppService.sendMessage(message.from, response)
   }
 
   private static async handleAudioMessage(message: ProcessedMessage): Promise<void> {

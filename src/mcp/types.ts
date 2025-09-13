@@ -17,9 +17,14 @@ export const RegisterPetSchema = z.object({
   ownerPhone: z.string().min(1, 'Owner phone is required'),
 });
 
+export const AskUserSchema = z.object({
+  message: z.string().min(1, 'Clarification message is required'),
+});
+
 export type RegisterUserInput = z.infer<typeof RegisterUserSchema>;
 export type ListPetsInput = z.infer<typeof ListPetsSchema>;
 export type RegisterPetInput = z.infer<typeof RegisterPetSchema>;
+export type AskUserInput = z.infer<typeof AskUserSchema>;
 
 export interface UserResult {
   id: number;

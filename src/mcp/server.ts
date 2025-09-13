@@ -11,9 +11,11 @@ import {
   RegisterUserSchema,
   ListPetsSchema,
   RegisterPetSchema,
+  AskUserSchema,
   RegisterUserInput,
   ListPetsInput,
   RegisterPetInput,
+  AskUserInput,
 } from './types';
 
 const repository = new PetRepository();
@@ -92,6 +94,20 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           required: ['name', 'dateOfBirth', 'species', 'ownerPhone'],
         },
       },
+      {
+        name: 'ask_user',
+        description: 'Ask the user for clarification or missing information',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            message: {
+              type: 'string',
+              description: 'Clarification message to send to the user',
+            },
+          },
+          required: ['message'],
+        },
+      },
     ],
   };
 });
@@ -137,6 +153,23 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           validatedArgs.species,
           validatedArgs.ownerPhone
         );
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      }
+
+      case 'ask_user': {
+        const validatedArgs = AskUserSchema.parse(args) as AskUserInput;
+        const result = {
+          success: true,
+          data: { message: validatedArgs.message },
+        };
 
         return {
           content: [
