@@ -2,11 +2,22 @@ import { NextRequest, NextResponse } from 'next/server'
 import { WhatsAppProcessor, WhatsAppMessage } from '@/lib/whatsapp-processor'
 import { WhatsAppMessageHandler } from '@/lib/whatsapp-message-handler'
 
+// Initialize session store on first import
+let initialized = false;
+async function ensureInitialized() {
+  if (!initialized) {
+    await WhatsAppMessageHandler.initialize();
+    initialized = true;
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
+    // Ensure session store is initialized
+    await ensureInitialized();
+
     const formData = await request.formData()
-    
-    // Convert FormData to WhatsAppMessage object
+
     const message: WhatsAppMessage = {
       MessageSid: formData.get('MessageSid') as string,
       From: formData.get('From') as string,
@@ -17,7 +28,6 @@ export async function POST(request: NextRequest) {
       NumMedia: formData.get('NumMedia') as string || '0'
     }
 
-    // Process the incoming message
     const processedMessage = await WhatsAppProcessor.processIncomingMessage(message)
 
     if (processedMessage) {

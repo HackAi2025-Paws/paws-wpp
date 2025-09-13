@@ -1,5 +1,6 @@
 import { WhatsAppService } from './twilio'
-import { AgentService } from './agent-service'
+import { getAgentLoop } from './agent-loop'
+import { getSessionStore } from './session-store'
 
 export interface ProcessedMessage {
   type: 'text' | 'audio' | 'media'
@@ -7,9 +8,16 @@ export interface ProcessedMessage {
   content?: string
   audioBuffer?: Buffer
   mediaType?: string
+  messageId?: string
 }
 
 export class WhatsAppMessageHandler {
+  static async initialize(): Promise<void> {
+    // Initialize session store connection
+    const sessionStore = getSessionStore();
+    await sessionStore.connect();
+  }
+
   static async handleMessage(message: ProcessedMessage): Promise<void> {
     switch (message.type) {
       case 'text':
@@ -32,9 +40,18 @@ export class WhatsAppMessageHandler {
       return
     }
 
-    // Use Claude agent to process the message
-    const response = await AgentService.processUserMessage(message.from, message.content)
-    await WhatsAppService.sendMessage(message.from, response)
+    try {
+      // Use AgentLoop to process the message with session management
+      const agentLoop = getAgentLoop()
+      const response = await agentLoop.execute(message.from, message.content, message.messageId)
+      await WhatsAppService.sendMessage(message.from, response)
+    } catch (error) {
+      console.error('Error processing text message:', error)
+      await WhatsAppService.sendMessage(
+        message.from,
+        'Lo siento, ocurrió un error procesando tu mensaje. Por favor intenta de nuevo.'
+      )
+    }
   }
 
   private static async handleAudioMessage(message: ProcessedMessage): Promise<void> {

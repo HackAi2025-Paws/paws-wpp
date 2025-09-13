@@ -35,7 +35,7 @@ export class WhatsAppProcessor {
       type: 'text' as const,
       from,
       content: text,
-      sid: message.MessageSid
+      messageId: message.MessageSid
     }
   }
 
@@ -55,7 +55,7 @@ export class WhatsAppProcessor {
       from,
       mediaUrl,
       mediaType,
-      sid: message.MessageSid
+      messageId: message.MessageSid
     }
   }
 
@@ -82,7 +82,7 @@ export class WhatsAppProcessor {
         from,
         audioBuffer: Buffer.from(audioBuffer),
         mediaType: message.MediaContentType0!,
-        sid: message.MessageSid
+        messageId: message.MessageSid
       }
     } catch (error) {
       console.error('Failed to process audio message:', error)
