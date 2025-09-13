@@ -12,6 +12,9 @@ import {
   ListPetsInput,
   RegisterPetInput,
 } from '@/mcp/types';
+import { WebSearchService } from './web-search/service';
+import { WebSearchArgs } from './web-search/types';
+import { createSearchConfig } from './web-search/config';
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 const repository = new PetRepository();
@@ -37,8 +40,13 @@ const AskUserArgs = z.object({
   message: z.string().min(1)
 });
 
+// Initialize web search service
+const searchConfig = createSearchConfig();
+const webSearchService = new WebSearchService(searchConfig);
+
 // Tool definitions
-const tools: Anthropic.Tool[] = [
+const createTools = (searchEnabled: boolean): Anthropic.Tool[] => {
+  const baseTools: Anthropic.Tool[] = [
   {
     name: 'register_user',
     description: 'Register or update a user when they provide their name.',
@@ -85,16 +93,75 @@ const tools: Anthropic.Tool[] = [
       required: ['message'],
       additionalProperties: false
     }
-  },
-];
+  }
+  ];
 
-const SYSTEM_PROMPT = `You are a WhatsApp assistant for a pet management system.
+  if (searchEnabled) {
+    baseTools.push({
+      name: 'web_search',
+      description: 'Search the web for fresh or factual information like veterinary care, vaccination schedules, medication recalls, symptom information, or current prices. Use ONLY when you need up-to-date information that you cannot answer from your existing knowledge. Do NOT use for basic pet care knowledge.',
+      input_schema: {
+        type: 'object',
+        properties: {
+          query: {
+            type: 'string',
+            description: 'Search query focusing on current/factual information'
+          },
+          n: {
+            type: 'integer',
+            minimum: 1,
+            maximum: 10,
+            default: 5,
+            description: 'Number of results to return (1-10)'
+          },
+          recencyDays: {
+            type: 'integer',
+            minimum: 1,
+            description: 'Only return results from last N days'
+          },
+          site: {
+            type: 'string',
+            description: 'Restrict search to specific site (e.g., "veterinary.org")'
+          }
+        },
+        required: ['query'],
+        additionalProperties: false
+      }
+    });
+  }
+
+  return baseTools;
+};
+
+const createSystemPrompt = (searchEnabled: boolean): string => {
+  let prompt = `You are a WhatsApp assistant for a pet management system.
 - Interpret Spanish messages and call appropriate tools
 - For register_pet: Only call if you have clear name, species (CAT/DOG), and birth date
 - If user gives unclear dates like "2 años", use ask_user to request specific birth date
 - Keep responses concise and WhatsApp-friendly
 - User's phone will be injected from trusted context
 - End sessions if user says "FIN", "SALIR", "ADIOS", or similar goodbye words`;
+
+  if (searchEnabled) {
+    prompt += `
+
+WEB SEARCH GUIDELINES:
+- Use web_search ONLY for fresh, niche, or uncertain information:
+  * Vaccination schedules and requirements
+  * Recent medication or food recalls
+  * Current symptoms or disease outbreaks
+  * Specific drug availability or pricing
+  * New veterinary treatments or procedures
+- DO NOT use web_search for out of scope knowledge:
+  * Basic pet anatomy or behavior
+  * Common training tips
+  * General feeding guidelines
+- When you get search results, cite sources with title, domain, and date
+- Always synthesize multiple sources when available`;
+  }
+
+  return prompt;
+};
 
 interface ToolResult {
   ok: boolean;
@@ -164,9 +231,12 @@ export class AgentLoop {
         // Validate messages before sending
         this.validateMessages(messages, requestId);
 
+        const tools = createTools(webSearchService.isEnabled());
+        const systemPrompt = createSystemPrompt(webSearchService.isEnabled());
+
         const response = await anthropic.messages.create({
           model: 'claude-sonnet-4-20250514',
-          system: SYSTEM_PROMPT,
+          system: systemPrompt,
           temperature: 0.3,
           max_tokens: 1500,
           tools,
@@ -333,6 +403,27 @@ export class AgentLoop {
           } else {
             return { ok: false, error: result.error };
           }
+        }
+
+        case 'web_search': {
+          if (!webSearchService.isEnabled()) {
+            return { ok: false, error: 'Web search is not configured' };
+          }
+
+          const args = WebSearchArgs.parse(toolInput);
+          console.log(`[${requestId}] Web search: ${args.query}`);
+
+          const result = await webSearchService.search(args);
+
+          return {
+            ok: true,
+            data: {
+              query: result.query,
+              results: result.results,
+              cached: result.cached,
+              count: result.count
+            }
+          };
         }
 
         case 'ask_user': {
