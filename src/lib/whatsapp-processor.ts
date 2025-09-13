@@ -1,4 +1,3 @@
-import { twilioClient } from './twilio'
 
 export interface WhatsAppMessage {
   MessageSid: string
@@ -29,14 +28,14 @@ export class WhatsAppProcessor {
   static async processTextMessage(message: WhatsAppMessage) {
     const from = message.From.replace('whatsapp:', '')
     const text = message.Body || ''
-    
+
     console.log(`Text message from ${from}: ${text}`)
-    
+
     return {
-      type: 'text',
+      type: 'text' as const,
       from,
       content: text,
-      sid: message.MessageSid
+      messageId: message.MessageSid
     }
   }
 
@@ -52,11 +51,11 @@ export class WhatsAppProcessor {
     }
     
     return {
-      type: 'media',
+      type: 'media' as const,
       from,
       mediaUrl,
       mediaType,
-      sid: message.MessageSid
+      messageId: message.MessageSid
     }
   }
 
@@ -79,11 +78,11 @@ export class WhatsAppProcessor {
       console.log(`Audio message from ${from}: ${audioBuffer.byteLength} bytes`)
       
       return {
-        type: 'audio',
+        type: 'audio' as const,
         from,
         audioBuffer: Buffer.from(audioBuffer),
         mediaType: message.MediaContentType0!,
-        sid: message.MessageSid
+        messageId: message.MessageSid
       }
     } catch (error) {
       console.error('Failed to process audio message:', error)

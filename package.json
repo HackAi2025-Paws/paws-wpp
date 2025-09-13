@@ -4,17 +4,39 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
+    "dev:full": "node scripts/setup.mjs",
+    "dev:fresh": "node scripts/setup.mjs --fresh",
+    "setup": "node scripts/setup.mjs --no-start",
+    "setup:fresh": "node scripts/setup.mjs --fresh --no-start",
     "build": "next build --turbopack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "mcp:dev": "tsx src/mcp/server.ts",
+    "redis:up": "docker-compose up -d redis",
+    "redis:down": "docker-compose down redis",
+    "redis:logs": "docker-compose logs -f redis",
+    "redis:dev": "docker-compose --profile dev up -d",
+    "redis:reset": "docker-compose down && docker volume rm paws-wpp_redis_data 2>/dev/null || true && docker-compose up -d redis",
+    "test:session": "tsx src/test-session.ts",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:push": "prisma db push",
+    "db:reset": "prisma migrate reset",
+    "db:studio": "prisma studio"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.62.0",
+    "@deepgram/sdk": "^4.11.2",
+    "@modelcontextprotocol/sdk": "^1.18.0",
     "@prisma/client": "^6.16.1",
+    "@types/redis": "^4.0.11",
     "next": "15.5.3",
-    "prisma": "^6.16.1",
     "react": "19.1.0",
     "react-dom": "19.1.0",
-    "twilio": "^5.9.0"
+    "redis": "^5.8.2",
+    "tsx": "^4.20.5",
+    "twilio": "^5.9.0",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
@@ -24,6 +46,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "15.5.3",
+    "prisma": "^6.16.1",
     "tailwindcss": "^4",
     "typescript": "^5"
   }
