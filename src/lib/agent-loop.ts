@@ -1,7 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { z } from 'zod';
 import { randomUUID } from 'crypto';
-import { SessionStore, getSessionStore, UserMessage, AssistantMessage, ToolMessage } from './session-store';
+import { SessionStore, getSessionStore, UserMessage, AssistantMessage } from './session-store';
 import { InputNormalizer } from './input-normalizer';
 import { PetRepository } from '@/mcp/repository';
 import {
@@ -147,8 +147,11 @@ export class AgentLoop {
       let session = await this.sessionStore.append(phone, userMessage);
       console.log(`[${requestId}] Session loaded with ${session.messages.length} messages`);
 
-      for (let round = 0; round < this.maxRounds; round++) {
-        console.log(`[${requestId}] Starting round ${round + 1}`);
+      // Main conversation loop with safety breaker
+      let round = 0;
+      while (round < this.maxRounds) {
+        round++;
+        console.log(`[${requestId}] Calling Claude with ${session.messages.length} session messages`);
 
         const messages = this.sessionStore.transformToAnthropicMessages(session.messages);
 
@@ -158,8 +161,8 @@ export class AgentLoop {
           console.log(`[${requestId}] Messages:`, JSON.stringify(messages, null, 2));
         }
 
-        // Validate and potentially fix messages before sending
-        const validatedMessages = this.validateAndFixMessages(messages, requestId);
+        // Validate messages before sending
+        this.validateMessages(messages, requestId);
 
         const response = await anthropic.messages.create({
           model: 'claude-sonnet-4-20250514',
@@ -167,25 +170,25 @@ export class AgentLoop {
           temperature: 0.3,
           max_tokens: 1500,
           tools,
-          messages: validatedMessages,
+          messages,
         });
 
         console.log(`[${requestId}] Claude response: ${response.usage?.input_tokens || 0} input, ${response.usage?.output_tokens || 0} output tokens`);
 
-        // Process Claude's response
+        // Check for tool_use blocks
         const toolUseBlocks = response.content.filter(
           (block): block is Anthropic.ToolUseBlock => block.type === 'tool_use'
         );
 
-        // Save assistant response to session
-        const assistantMessage: AssistantMessage = {
-          role: 'assistant',
-          content: response.content
-        };
-        session = await this.sessionStore.append(phone, assistantMessage);
-
         if (toolUseBlocks.length === 0) {
-          // No tools used, extract text response
+          // No tools used - this is the final response
+          const assistantMessage: AssistantMessage = {
+            role: 'assistant',
+            content: response.content
+          };
+          session = await this.sessionStore.append(phone, assistantMessage);
+
+          // Extract text response
           const textBlocks = response.content.filter(
             (block): block is Anthropic.TextBlock => block.type === 'text'
           );
@@ -196,21 +199,33 @@ export class AgentLoop {
             return 'Lo siento, no pude generar una respuesta.';
           }
 
-          console.log(`[${requestId}] Completed in ${Date.now() - startTime}ms with text response`);
+          console.log(`[${requestId}] Completed in ${Date.now() - startTime}ms with final response`);
           return reply;
         }
 
-        // Execute tools
+        // Tools were used - append assistant turn to history
+        const assistantMessage: AssistantMessage = {
+          role: 'assistant',
+          content: response.content
+        };
+        session = await this.sessionStore.append(phone, assistantMessage);
+
         console.log(`[${requestId}] Executing ${toolUseBlocks.length} tools`);
 
+        // Execute each tool and validate tool_use_id matches
+        const toolResults: Anthropic.ToolResultBlockParam[] = [];
         for (const toolBlock of toolUseBlocks) {
+          // Validate that tool_use_id matches the one from assistant response
+          if (!this.validateToolUseId(toolBlock.id, toolUseBlocks, requestId)) {
+            throw new Error(`Invalid tool_use_id: ${toolBlock.id}`);
+          }
+
           const toolResult = await this.executeTool(toolBlock, phone, requestId);
 
           // Ensure tool result content is valid JSON string
           let toolContent: string;
           try {
             toolContent = JSON.stringify(toolResult);
-            // Ensure the JSON is not empty
             if (toolContent === '{}' || toolContent === 'null' || toolContent === 'undefined') {
               toolContent = JSON.stringify({ ok: false, error: 'Empty tool result' });
             }
@@ -219,17 +234,22 @@ export class AgentLoop {
             toolContent = JSON.stringify({ ok: false, error: 'Failed to serialize tool result' });
           }
 
-          const toolMessage: ToolMessage = {
-            role: 'tool',
-            tool_name: toolBlock.name,
+          toolResults.push({
+            type: 'tool_result',
             tool_use_id: toolBlock.id,
             content: toolContent
-          };
-
-          session = await this.sessionStore.append(phone, toolMessage);
+          });
         }
 
-        // Continue to next round to let Claude process tool results
+        // Create user message with tool results
+        // Use a special format that the session store will recognize
+        const toolResultsMessage: UserMessage = {
+          role: 'user',
+          content: `__TOOL_RESULTS__${JSON.stringify(toolResults)}`
+        };
+        session = await this.sessionStore.append(phone, toolResultsMessage);
+
+        // Continue loop to call Claude again with the tool results
       }
 
       // Safety breaker hit
@@ -345,77 +365,13 @@ export class AgentLoop {
     }
   }
 
-  private validateAndFixMessages(messages: Anthropic.MessageParam[], requestId: string): Anthropic.MessageParam[] {
-    const fixedMessages: Anthropic.MessageParam[] = [];
 
-    for (let i = 0; i < messages.length; i++) {
-      const message = messages[i];
-
-      // Skip messages with no content
-      if (!message.content) {
-        console.warn(`[${requestId}] Skipping message ${i} with no content`);
-        continue;
-      }
-
-      // Handle array content
-      if (Array.isArray(message.content)) {
-        // Skip empty arrays
-        if (message.content.length === 0) {
-          console.warn(`[${requestId}] Skipping message ${i} with empty content array`);
-          continue;
-        }
-
-        // Separate tool_result blocks from other content
-        const toolResults: Anthropic.ToolResultBlockParam[] = [];
-        const otherContent: Anthropic.ContentBlockParam[] = [];
-
-        for (const block of message.content) {
-          if (typeof block === 'object' && 'type' in block) {
-            if (block.type === 'tool_result') {
-              toolResults.push(block as Anthropic.ToolResultBlockParam);
-            } else if (block.type === 'text' && block.text?.trim()) {
-              otherContent.push(block);
-            }
-          }
-        }
-
-        // If we have tool results, they should be in separate messages
-        if (toolResults.length > 0 && otherContent.length > 0) {
-          console.warn(`[${requestId}] Separating tool results from text content in message ${i}`);
-
-          // Add text content first
-          fixedMessages.push({
-            role: message.role,
-            content: otherContent
-          });
-
-          // Add each tool result in its own message
-          for (const toolResult of toolResults) {
-            fixedMessages.push({
-              role: 'user', // Tool results are always user messages
-              content: [toolResult]
-            });
-          }
-        } else if (toolResults.length > 0) {
-          // Only tool results
-          fixedMessages.push({
-            role: 'user',
-            content: toolResults
-          });
-        } else if (otherContent.length > 0) {
-          // Only other content
-          fixedMessages.push({
-            role: message.role,
-            content: otherContent
-          });
-        }
-      } else {
-        fixedMessages.push(message);
-      }
+  private validateToolUseId(toolUseId: string, toolUseBlocks: Anthropic.ToolUseBlock[], requestId: string): boolean {
+    const found = toolUseBlocks.some(block => block.id === toolUseId);
+    if (!found) {
+      console.error(`[${requestId}] Invalid tool_use_id: ${toolUseId} not found in assistant response`);
     }
-
-    this.validateMessages(fixedMessages, requestId);
-    return fixedMessages;
+    return found;
   }
 
   private validateMessages(messages: Anthropic.MessageParam[], requestId: string): void {
