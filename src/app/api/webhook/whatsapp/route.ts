@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
       await WhatsAppMessageHandler.handleMessage(processedMessage)
     }
 
-    return new NextResponse('OK', { status: 200 })
+    return new NextResponse('', { status: 200 })
   } catch (error) {
     console.error('WhatsApp webhook error:', error)
     return NextResponse.json({ error: 'Webhook processing failed' }, { status: 500 })
