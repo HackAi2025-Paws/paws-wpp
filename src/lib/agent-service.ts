@@ -20,25 +20,12 @@ export class AgentService {
 
   static async processUserMessage(userPhone: string, messageBody: string): Promise<string> {
     try {
-      // Get Claude's tool calls (can be multiple)
-      const toolCalls = await ClaudeService.processMessage(userPhone, messageBody);
+      // Get Claude's tool call
+      const toolCall = await ClaudeService.processMessage(userPhone, messageBody);
 
-      // Execute all tool calls and collect results
-      const results: string[] = [];
-
-      for (const toolCall of toolCalls) {
-        try {
-          const result = await this.executeValidatedTool(toolCall);
-          const formattedResponse = this.formatResponse(toolCall, result);
-          results.push(formattedResponse);
-        } catch (error) {
-          console.error(`Failed to execute tool ${toolCall.name}:`, error);
-          results.push(`❌ Error procesando ${toolCall.name}: ${error instanceof Error ? error.message : 'Error desconocido'}`);
-        }
-      }
-
-      // Combine all results
-      return results.join('\n\n');
+      // Execute the tool call
+      const result = await this.executeValidatedTool(toolCall);
+      return this.formatResponse(toolCall, result);
 
     } catch (error) {
       console.error('Agent processing error:', error);
@@ -47,15 +34,14 @@ export class AgentService {
   }
 
   private static async executeValidatedTool(toolCall: AgentToolCall): Promise<OperationResult<UserResult | PetResult[] | PetResult> | { message: string }> {
-    console.log(`Executing tool: ${toolCall.name}`, toolCall.input);
+    console.log(`Executing tool: ${toolCall.name}`, toolCall.arguments);
 
     try {
       switch (toolCall.name) {
         case 'register_user': {
-          // Normalize and validate input
           const normalizedInput = {
-            ...toolCall.input,
-            name: typeof toolCall.input.name === 'string' ? InputNormalizer.normalizeName(toolCall.input.name) : toolCall.input.name
+            ...toolCall.arguments,
+            name: typeof toolCall.arguments.name === 'string' ? InputNormalizer.normalizeName(toolCall.arguments.name) : toolCall.arguments.name
           };
 
           const args = RegisterUserSchema.parse(normalizedInput) as RegisterUserInput;
@@ -63,17 +49,16 @@ export class AgentService {
         }
 
         case 'list_pets': {
-          const args = ListPetsSchema.parse(toolCall.input) as ListPetsInput;
+          const args = ListPetsSchema.parse(toolCall.arguments) as ListPetsInput;
           return await this.repository.listPetsByUserPhone(args.phone);
         }
 
         case 'register_pet': {
-          // Normalize inputs before validation
           const normalizedInput = {
-            ...toolCall.input,
-            name: typeof toolCall.input.name === 'string' ? InputNormalizer.normalizeName(toolCall.input.name) : toolCall.input.name,
-            species: typeof toolCall.input.species === 'string' ? InputNormalizer.normalizeSpecies(toolCall.input.species) : toolCall.input.species,
-            dateOfBirth: typeof toolCall.input.dateOfBirth === 'string' ? InputNormalizer.normalizeDate(toolCall.input.dateOfBirth) : toolCall.input.dateOfBirth
+            ...toolCall.arguments,
+            name: typeof toolCall.arguments.name === 'string' ? InputNormalizer.normalizeName(toolCall.arguments.name) : toolCall.arguments.name,
+            species: typeof toolCall.arguments.species === 'string' ? InputNormalizer.normalizeSpecies(toolCall.arguments.species) : toolCall.arguments.species,
+            dateOfBirth: typeof toolCall.arguments.dateOfBirth === 'string' ? InputNormalizer.normalizeDate(toolCall.arguments.dateOfBirth) : toolCall.arguments.dateOfBirth
           };
 
           const args = RegisterPetSchema.parse(normalizedInput) as RegisterPetInput;
@@ -86,7 +71,7 @@ export class AgentService {
         }
 
         case 'ask_user': {
-          const args = AskUserSchema.parse(toolCall.input) as AskUserInput;
+          const args = AskUserSchema.parse(toolCall.arguments) as AskUserInput;
           return { message: args.message };
         }
 
@@ -96,7 +81,6 @@ export class AgentService {
     } catch (error) {
       console.error(`Tool execution failed for ${toolCall.name}:`, error);
 
-      // Handle normalization errors with helpful messages
       if (error instanceof Error) {
         if (error.message.includes('Invalid species')) {
           return {
@@ -125,12 +109,10 @@ export class AgentService {
     toolCall: AgentToolCall,
     result: OperationResult<UserResult | PetResult[] | PetResult> | { message: string }
   ): string {
-    // Handle ask_user and error responses
     if ('message' in result) {
       return result.message;
     }
 
-    // Handle operation results
     const operationResult = result as OperationResult<UserResult | PetResult[] | PetResult>;
 
     if (!operationResult.success) {
