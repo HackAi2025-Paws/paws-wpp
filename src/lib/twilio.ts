@@ -1,4 +1,5 @@
 import twilio from 'twilio'
+import { WhatsAppResponseCleaner } from './whatsapp-response-cleaner'
 
 const accountSid = process.env.TWILIO_ACCOUNT_SID
 const authToken = process.env.TWILIO_AUTH_TOKEN
@@ -13,10 +14,13 @@ export const twilioClient = twilio(accountSid, authToken)
 export class WhatsAppService {
   static async sendMessage(to: string, message: string) {
     try {
+      // Clean the response before sending
+      const cleanedMessage = WhatsAppResponseCleaner.cleanResponse(message)
+      
       const result = await twilioClient.messages.create({
         from: `whatsapp:${whatsappNumber}`,
         to: `whatsapp:${to}`,
-        body: message
+        body: cleanedMessage
       })
       console.log(`WhatsApp message sent: ${result.sid}`)
       return result
@@ -28,10 +32,13 @@ export class WhatsAppService {
 
   static async sendMediaMessage(to: string, message: string, mediaUrl: string) {
     try {
+      // Clean the response before sending
+      const cleanedMessage = WhatsAppResponseCleaner.cleanResponse(message)
+      
       const result = await twilioClient.messages.create({
         from: `whatsapp:${whatsappNumber}`,
         to: `whatsapp:${to}`,
-        body: message,
+        body: cleanedMessage,
         mediaUrl: [mediaUrl]
       })
       console.log(`WhatsApp media message sent: ${result.sid}`)
