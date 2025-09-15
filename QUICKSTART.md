@@ -110,6 +110,8 @@ Before going live:
    REDIS_URL=redis://prod-host      # ✅ Production Redis
    DATABASE_URL=postgresql://...    # ✅ Production DB
    TWILIO_ACCOUNT_SID=AC...         # ✅ Set
+   GOOGLE_PLACES_API_KEY=AI...      # ✅ Optional: For map search
+   TAVILY_API_KEY=tvly-...          # ✅ Optional: For web search
    ```
 
 2. **Redis Configuration**

@@ -12,7 +12,7 @@ export class WebSearchTool implements ToolHandler<WebSearchInputType> {
 
   definition = {
     name: 'web_search',
-    description: 'Search the web for fresh or factual information like veterinary care, vaccination schedules, medication recalls, symptom information, or current prices. Use ONLY when you need up-to-date information that you cannot answer from your existing knowledge. Do NOT use for basic pet care knowledge.',
+    description: 'Search the web for fresh or factual information like veterinary care, vaccination schedules, medication recalls, symptom information, or current prices. Use ONLY when you need up-to-date information that you cannot answer from your existing knowledge. Do NOT use for basic pet care knowledge. Do NOT use for finding locations or businesses - use map_search instead.',
     input_schema: {
       type: 'object' as const,
       properties: {
