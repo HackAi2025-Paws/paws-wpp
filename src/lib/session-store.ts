@@ -195,6 +195,49 @@ export class SessionStore {
             const toolResultsJson = msg.content.substring('__TOOL_RESULTS__'.length);
             try {
               const toolResults = JSON.parse(toolResultsJson) as Anthropic.ToolResultBlockParam[];
+              
+              // Validate that we have a previous assistant message with tool_use blocks
+              if (result.length === 0) {
+                console.error('Tool results message found but no previous assistant message');
+                continue;
+              }
+              
+              const prevMessage = result[result.length - 1];
+              if (prevMessage.role !== 'assistant') {
+                console.error('Tool results message found but previous message is not from assistant');
+                continue;
+              }
+              
+              // Check if the previous assistant message has tool_use blocks
+              const assistantContent = prevMessage.content;
+              if (!Array.isArray(assistantContent)) {
+                console.error('Previous assistant message content is not an array');
+                continue;
+              }
+              
+              const toolUseBlocks = assistantContent.filter(
+                (block: any) => block.type === 'tool_use'
+              );
+              
+              if (toolUseBlocks.length === 0) {
+                console.error('Previous assistant message has no tool_use blocks');
+                continue;
+              }
+              
+              // Validate that tool_use_ids match
+              const toolUseIds = new Set(toolUseBlocks.map((block: any) => block.id));
+              const toolResultIds = new Set(toolResults.map(result => result.tool_use_id));
+              
+              console.log('Tool use IDs:', Array.from(toolUseIds));
+              console.log('Tool result IDs:', Array.from(toolResultIds));
+              
+              const hasMatchingIds = Array.from(toolResultIds).every(id => toolUseIds.has(id));
+              if (!hasMatchingIds) {
+                console.error('Tool result IDs do not match tool use IDs');
+                console.error('Missing IDs:', Array.from(toolResultIds).filter(id => !toolUseIds.has(id)));
+                continue;
+              }
+              
               result.push({
                 role: 'user',
                 content: toolResults

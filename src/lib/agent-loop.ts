@@ -11,7 +11,7 @@ const toolRegistry = new ToolRegistry();
 const toolRunner = new ToolRunner();
 
 const getToolDefinitions = (): Anthropic.Tool[] => {
-  return toolRegistry.getToolDefinitions(toolRegistry.hasWebSearch());
+  return toolRegistry.getToolDefinitions(toolRegistry.hasWebSearch(), toolRegistry.hasMapSearch());
 };
 
 const createSystemPrompt = (): string => {
@@ -197,12 +197,28 @@ export class AgentLoop {
           });
         }
 
+        // Validate tool results before adding to session
+        if (toolResults.length === 0) {
+          console.error(`[${requestId}] No tool results to add to session`);
+          throw new Error('No tool results generated');
+        }
+
+        // Validate that all tool results have valid tool_use_ids
+        for (const toolResult of toolResults) {
+          if (!toolResult.tool_use_id) {
+            console.error(`[${requestId}] Tool result missing tool_use_id:`, toolResult);
+            throw new Error('Tool result missing tool_use_id');
+          }
+        }
+
         // Create user message with tool results
         // Use a special format that the session store will recognize
         const toolResultsMessage: UserMessage = {
           role: 'user',
           content: `__TOOL_RESULTS__${JSON.stringify(toolResults)}`
         };
+        
+        console.log(`[${requestId}] Adding tool results to session:`, toolResults.map(r => ({ tool_use_id: r.tool_use_id, type: r.type })));
         session = await this.sessionStore.append(phone, toolResultsMessage);
 
         // Continue loop to call Claude again with the tool results
