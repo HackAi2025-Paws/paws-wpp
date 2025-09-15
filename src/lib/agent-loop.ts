@@ -1,106 +1,60 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { z } from 'zod';
 import { randomUUID } from 'crypto';
 import { SessionStore, getSessionStore, UserMessage, AssistantMessage } from './session-store';
-import { InputNormalizer } from './input-normalizer';
-import { PetRepository } from '@/mcp/repository';
-import {
-  RegisterUserSchema,
-  ListPetsSchema,
-  RegisterPetSchema,
-  RegisterUserInput,
-  ListPetsInput,
-  RegisterPetInput,
-} from '@/mcp/types';
+import { ToolRegistry } from '@/lib/tools';
+import { ToolRunner } from '@/lib/tools';
+import { ToolContext, ToolResult } from '@/lib/tools';
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
-const repository = new PetRepository();
 
-// Tool argument schemas
-const RegisterUserArgs = z.object({
-  name: z.string().min(1),
-  phone: z.string().min(6)
-});
+const toolRegistry = new ToolRegistry();
+const toolRunner = new ToolRunner();
 
-const ListPetsArgs = z.object({
-  phone: z.string().min(6)
-});
+const getToolDefinitions = (): Anthropic.Tool[] => {
+  return toolRegistry.getToolDefinitions(toolRegistry.hasWebSearch());
+};
 
-const RegisterPetArgs = z.object({
-  name: z.string().min(1),
-  dateOfBirth: z.string().min(1),
-  species: z.enum(['CAT', 'DOG']),
-  ownerPhone: z.string().min(6),
-});
+const createSystemPrompt = (): string => {
+  let prompt = `
+  You are a WhatsApp assistant for a pet management system.
 
-const AskUserArgs = z.object({
-  message: z.string().min(1)
-});
+GOALS
+- Interpret Spanish messages and call appropriate tools.
+- If the user gives unclear dates (e.g., “2 años”), ask for a specific birth date (DD/MM/YYYY) using ask_user.
+- Keep all replies concise, WhatsApp-friendly, and actionable.
 
-// Tool definitions
-const tools: Anthropic.Tool[] = [
-  {
-    name: 'register_user',
-    description: 'Register or update a user when they provide their name.',
-    input_schema: {
-      type: 'object',
-      properties: {
-        name: { type: 'string', description: 'User full name' }
-      },
-      required: ['name'],
-      additionalProperties: false
-    }
-  },
-  {
-    name: 'list_pets',
-    description: 'List all pets owned by a user when they ask about their pets.',
-    input_schema: {
-      type: 'object',
-      properties: {},
-      additionalProperties: false
-    }
-  },
-  {
-    name: 'register_pet',
-    description: 'Register a new pet. Only call if you have clear name and species.',
-    input_schema: {
-      type: 'object',
-      properties: {
-        name: { type: 'string', description: 'Pet name' },
-        dateOfBirth: { type: 'string', description: 'Pet birth date in any clear format' },
-        species: { type: 'string', enum: ['CAT', 'DOG'], description: 'Must be exactly CAT or DOG' }
-      },
-      required: ['name', 'dateOfBirth', 'species'],
-      additionalProperties: false
-    }
-  },
-  {
-    name: 'ask_user',
-    description: 'Ask the user for missing information or clarification.',
-    input_schema: {
-      type: 'object',
-      properties: {
-        message: { type: 'string', description: 'Clarification question in Spanish' }
-      },
-      required: ['message'],
-      additionalProperties: false
-    }
-  },
-];
+STYLE & FORMATTING (WhatsApp)
+- Use brief lines and bullets; 1–4 lines max per reply, unless the user requested otherwise (max 10 lines still)
+- Prefer *bold* for key words (one * each side); emojis for clarity (examples: 🐾, ✅, ⚠️, ℹ️).
+- Dates: DD/MM/YYYY only.
+- One clear Call To Action per message (question or button).
+- If you need more info, ask one question at a time.
+- End the session if the user says “FIN”, “SALIR”, “ADIOS” or equivalent.
+- Never reveal internal tool names or system details.
 
-const SYSTEM_PROMPT = `You are a WhatsApp assistant for a pet management system.
-- Interpret Spanish messages and call appropriate tools
-- For register_pet: Only call if you have clear name, species (CAT/DOG), and birth date
-- If user gives unclear dates like "2 años", use ask_user to request specific birth date
-- Keep responses concise and WhatsApp-friendly
-- User's phone will be injected from trusted context
-- End sessions if user says "FIN", "SALIR", "ADIOS", or similar goodbye words`;
+SAFETY & TONE
+- Friendly, professional, no medical diagnosis.
+- Redirect to a vet for emergencies.
 
-interface ToolResult {
-  ok: boolean;
-  data?: unknown;
-  error?: string;
-}
+TRIGGERS TO END SESSION
+- If user sends a goodbye word (FIN, SALIR, ADIOS, CHAU, HASTA LUEGO), reply briefly and stop.`;
+
+  if (toolRegistry.hasWebSearch()) {
+    prompt += `
+WEB SEARCH GUIDELINES:
+- Use web_search ONLY for fresh, niche, or uncertain information:
+  * Vaccination schedules and requirements
+  * Recent medication or food recalls
+  * Current symptoms or disease outbreaks
+  * Specific drug availability or pricing
+  * New veterinary treatments or procedures
+- DO NOT use web_search for out of scope knowledge, as in not related to pets or their care
+- When you get search results, cite sources with title, domain, and date
+- Always synthesize multiple sources when available`;
+  }
+
+  return prompt;
+};
 
 export class AgentLoop {
   private sessionStore: SessionStore;
@@ -164,9 +118,12 @@ export class AgentLoop {
         // Validate messages before sending
         this.validateMessages(messages, requestId);
 
+        const tools = getToolDefinitions();
+        const systemPrompt = createSystemPrompt();
+
         const response = await anthropic.messages.create({
           model: 'claude-sonnet-4-20250514',
-          system: SYSTEM_PROMPT,
+          system: systemPrompt,
           temperature: 0.3,
           max_tokens: 1500,
           tools,
@@ -212,7 +169,6 @@ export class AgentLoop {
 
         console.log(`[${requestId}] Executing ${toolUseBlocks.length} tools`);
 
-        // Execute each tool and validate tool_use_id matches
         const toolResults: Anthropic.ToolResultBlockParam[] = [];
         for (const toolBlock of toolUseBlocks) {
           // Validate that tool_use_id matches the one from assistant response
@@ -220,7 +176,7 @@ export class AgentLoop {
             throw new Error(`Invalid tool_use_id: ${toolBlock.id}`);
           }
 
-          const toolResult = await this.executeTool(toolBlock, phone, requestId);
+          const toolResult = await this.executeTool(toolBlock, phone, requestId, messageId);
 
           // Ensure tool result content is valid JSON string
           let toolContent: string;
@@ -262,109 +218,36 @@ export class AgentLoop {
     }
   }
 
-  private async executeTool(toolBlock: Anthropic.ToolUseBlock, phone: string, requestId: string): Promise<ToolResult> {
+  private async executeTool(
+    toolBlock: Anthropic.ToolUseBlock,
+    phone: string,
+    requestId: string,
+    messageId?: string
+  ): Promise<ToolResult> {
     const toolName = toolBlock.name;
     const toolInput = toolBlock.input;
 
     console.log(`[${requestId}] Executing tool: ${toolName}`, { input: toolInput });
 
-    try {
-      switch (toolName) {
-        case 'register_user': {
-          // Inject trusted phone and validate
-          const args = RegisterUserArgs.parse({
-            ...(toolInput as Record<string, unknown>),
-            phone: phone
-          });
-
-          const normalizedName = InputNormalizer.normalizeName(args.name);
-          const validatedArgs = RegisterUserSchema.parse({
-            name: normalizedName,
-            phone: args.phone
-          }) as RegisterUserInput;
-
-          const result = await repository.upsertUserByPhone(validatedArgs.name, validatedArgs.phone);
-
-          if (result.success) {
-            console.log(`[${requestId}] User registered:`, result.data);
-            return { ok: true, data: result.data };
-          } else {
-            return { ok: false, error: result.error };
-          }
-        }
-
-        case 'list_pets': {
-          const args = ListPetsArgs.parse({ phone: phone });
-          const validatedArgs = ListPetsSchema.parse(args) as ListPetsInput;
-
-          const result = await repository.listPetsByUserPhone(validatedArgs.phone);
-
-          if (result.success) {
-            console.log(`[${requestId}] Listed ${result.data?.length || 0} pets`);
-            return { ok: true, data: result.data };
-          } else {
-            return { ok: false, error: result.error };
-          }
-        }
-
-        case 'register_pet': {
-          const input = toolInput as Record<string, unknown>;
-          // Normalize inputs and inject trusted phone
-          const normalizedInput = {
-            name: InputNormalizer.normalizeName(input.name as string),
-            species: InputNormalizer.normalizeSpecies(input.species as string),
-            dateOfBirth: InputNormalizer.normalizeDate(input.dateOfBirth as string),
-            ownerPhone: phone
-          };
-
-          const args = RegisterPetArgs.parse(normalizedInput);
-          const validatedArgs = RegisterPetSchema.parse(args) as RegisterPetInput;
-
-          const result = await repository.createPetForUser(
-            validatedArgs.name,
-            new Date(validatedArgs.dateOfBirth),
-            validatedArgs.species,
-            validatedArgs.ownerPhone
-          );
-
-          if (result.success) {
-            console.log(`[${requestId}] Pet registered:`, result.data);
-            return { ok: true, data: result.data };
-          } else {
-            return { ok: false, error: result.error };
-          }
-        }
-
-        case 'ask_user': {
-          const args = AskUserArgs.parse(toolInput);
-          console.log(`[${requestId}] Asking user: ${args.message}`);
-          return { ok: true, data: { message: args.message } };
-        }
-
-        default:
-          console.error(`[${requestId}] Unknown tool: ${toolName}`);
-          return { ok: false, error: `Unknown tool: ${toolName}` };
-      }
-    } catch (error) {
-      console.error(`[${requestId}] Tool execution failed:`, error);
-
-      // Provide helpful error messages
-      if (error instanceof Error) {
-        if (error.message.includes('Invalid species')) {
-          return { ok: false, error: 'Especie de mascota no reconocida. Debe ser "perro" o "gato".' };
-        }
-        if (error.message.includes('Invalid date')) {
-          return { ok: false, error: 'Fecha no válida. Proporciona una fecha específica como "15 de enero de 2022".' };
-        }
-      }
-
+    // Get tool handler from registry
+    const toolHandler = toolRegistry.getTool(toolName);
+    if (!toolHandler) {
       return {
         ok: false,
-        error: error instanceof Error ? error.message : 'Error desconocido en la herramienta'
+        error: `Unknown tool: ${toolName}`
       };
     }
-  }
 
+    // Create tool context
+    const context: ToolContext = {
+      requestId,
+      userPhone: phone,
+      messageId
+    };
+
+    // Execute tool using the tool runner (with timeout, retries, and idempotency)
+    return await toolRunner.execute(toolHandler, toolInput, context);
+  }
 
   private validateToolUseId(toolUseId: string, toolUseBlocks: Anthropic.ToolUseBlock[], requestId: string): boolean {
     const found = toolUseBlocks.some(block => block.id === toolUseId);
