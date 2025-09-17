@@ -146,7 +146,7 @@ async function main() {
 function getRedisMode() {
   const mode = (process.env.REDIS_MODE || 'local').toLowerCase();
   if (!['local', 'external'].includes(mode)) {
-    throw new Error(`REDIS_MODE inválido: ${mode} (usa "local" o "external")`);
+    throw new Error(`Invalid REDIS_MODE: ${mode} (use "local" or "external")`);
   }
   return mode;
 }
