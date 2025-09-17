@@ -19,9 +19,12 @@ enum PendingStatus {
 }
 
 enum PendingCategory {
-  USER_CREATED
-  VACCINE
-  MEDICATION
+  VACCINATION
+  TREATMENT
+  VET_CONTROL
+  CLINICAL_UPDATE
+  DAILY_CARE
+  PREVENTION
 }
 
 model User {
@@ -70,20 +73,20 @@ model Pending {
 }
 
 model Consultation {
-  id               Int      @id @default(autoincrement())
-  petId            Int
-  userId           Int
-  date             DateTime
-  chiefComplaint   String
-  findings         String?
-  diagnosis        String?
-  treatment        String?
-  nextSteps        String?
-  additionalNotes  String?
-  createdAt        DateTime @default(now())
+  id              Int      @id @default(autoincrement())
+  petId           Int
+  userId          Int
+  date            DateTime
+  chiefComplaint  String
+  findings        String?
+  diagnosis       String?
+  treatment       String?
+  nextSteps       String?
+  additionalNotes String?
+  createdAt       DateTime @default(now())
 
-  pet              Pet      @relation(fields: [petId], references: [id])
-  user             User     @relation(fields: [userId], references: [id])
+  pet  Pet  @relation(fields: [petId], references: [id])
+  user User @relation(fields: [userId], references: [id])
 
   @@index([petId])
   @@index([userId])

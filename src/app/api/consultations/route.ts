@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { CreateConsultationSchema } from '@/mcp/types';
+import { withAuth, JWTPayload } from '@/middleware/auth-middleware';
 
-export async function POST(request: NextRequest) {
+export const POST = withAuth(async (req: NextRequest, token: JWTPayload) => {
   try {
-    const body = await request.json();
+    const body = await req.json();
 
     const validation = CreateConsultationSchema.safeParse(body);
 
@@ -21,7 +22,7 @@ export async function POST(request: NextRequest) {
     const consultation = await prisma.consultation.create({
       data: {
         petId: validation.data.petId,
-        userId: validation.data.userId,
+        userId: parseInt(token.sub, 10),
         date: new Date(validation.data.date),
         chiefComplaint: validation.data.chiefComplaint,
         findings: validation.data.findings,
@@ -76,13 +77,13 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});
 
-export async function GET(request: NextRequest) {
+export const GET = withAuth(async (req: NextRequest, token: JWTPayload) => {
   try {
-    const { searchParams } = new URL(request.url);
+    const { searchParams } = new URL(req.url);
     const petId = searchParams.get('petId');
-    const userId = searchParams.get('userId');
+    const userId = parseInt(token.sub, 10);
     const consultationId = searchParams.get('id');
 
     if (consultationId) {
@@ -200,8 +201,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (userId) {
-      const id = parseInt(userId, 10);
-      if (isNaN(id)) {
+      if (isNaN(userId)) {
         return NextResponse.json(
           { error: 'Invalid user ID' },
           { status: 400 }
@@ -209,7 +209,7 @@ export async function GET(request: NextRequest) {
       }
 
       const consultations = await prisma.consultation.findMany({
-        where: { userId: id },
+        where: { userId },
         include: {
           pet: {
             include: {
@@ -265,4 +265,4 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});

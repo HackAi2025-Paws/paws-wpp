@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { PendingCategory, PendingStatus } from '@prisma/client';
+import {JWTPayload, withAuth} from "@/middleware/auth-middleware";
 
-export async function GET(request: NextRequest) {
+export const GET = withAuth(async (req: NextRequest, token: JWTPayload) => {
   try {
-    const userId = request.nextUrl.searchParams.get('userId');
-    const status = request.nextUrl.searchParams.get('status') as PendingStatus | null;
-    const category = request.nextUrl.searchParams.get('category') as PendingCategory | null;
+    const userId = req.nextUrl.searchParams.get('userId');
+    const status = req.nextUrl.searchParams.get('status') as PendingStatus | null;
+    const category = req.nextUrl.searchParams.get('category') as PendingCategory | null;
 
     const where: any = {};
 
@@ -36,11 +37,11 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});
 
-export async function POST(request: NextRequest) {
+export const POST = withAuth(async (req: NextRequest, token: JWTPayload) => {
   try {
-    const data = await request.json();
+    const data = await req.json();
 
     if (!data.title || !data.status || !data.category || !data.userId) {
       return NextResponse.json(
@@ -69,7 +70,7 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});
 
 export async function PUT(request: NextRequest) {
   try {
@@ -130,7 +131,6 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // Eliminar pending
     await prisma.pending.delete({
       where: { id: parseInt(id) }
     });
