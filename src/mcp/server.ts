@@ -344,7 +344,6 @@ async function runServer() {
 
   if (mode === 'http') {
     const app = express();
-    app.use(express.json());
 
     // CORS (expose Mcp-Session-Id if consuming from a browser)
     app.use((req, res, next) => {
@@ -355,16 +354,17 @@ async function runServer() {
       next();
     });
 
+    const transport = new StreamableHTTPServerTransport({
+      sessionIdGenerator: () => randomUUID(),
+      enableDnsRebindingProtection: false,
+      // If you need SSE legacy compatibility, many examples expose it in parallel;
+      // Streamable HTTP is the current recommended approach. :contentReference[oaicite:1]{index=1}
+    });
+
+    await server.connect(transport);
+
     // Endpoint MCP (Streamable HTTP)
     app.all('/mcp', async (req, res) => {
-      const transport = new StreamableHTTPServerTransport({
-        sessionIdGenerator: () => randomUUID(),
-        enableDnsRebindingProtection: true,
-        // If you need SSE legacy compatibility, many examples expose it in parallel;
-        // Streamable HTTP is the current recommended approach. :contentReference[oaicite:1]{index=1}
-      });
-
-      await server.connect(transport);
       await transport.handleRequest(req, res);
     });
 

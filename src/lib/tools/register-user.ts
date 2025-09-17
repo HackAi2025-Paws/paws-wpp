@@ -1,8 +1,6 @@
 import { z } from 'zod';
 import { ToolHandler, ToolContext, ToolResult } from './types';
-import { InputNormalizer } from '../input-normalizer';
-import { PetRepository } from '@/mcp/repository';
-import { RegisterUserSchema, RegisterUserInput } from '@/mcp/types';
+import { UserService } from '../user-service';
 
 const RegisterUserArgs = z.object({
   name: z.string().min(1, 'Name is required')
@@ -33,28 +31,9 @@ export class RegisterUserTool implements ToolHandler<RegisterUserArgsType> {
     retryDelay: 1000
   };
 
-  private repository = new PetRepository();
-
   async execute(input: RegisterUserArgsType, context: ToolContext): Promise<ToolResult> {
     try {
-      // Inject trusted phone number from context
-      const argsWithPhone = {
-        name: input.name,
-        phone: context.userPhone
-      };
-
-      // Normalize and validate
-      const normalizedName = InputNormalizer.normalizeName(argsWithPhone.name);
-      const validatedArgs = RegisterUserSchema.parse({
-        name: normalizedName,
-        phone: argsWithPhone.phone
-      }) as RegisterUserInput;
-
-      // Execute upsert operation (idempotent by nature)
-      const result = await this.repository.upsertUserByPhone(
-        validatedArgs.name,
-        validatedArgs.phone
-      );
+      const result = await UserService.registerUser(input.name, context.userPhone);
 
       if (result.success) {
         console.log(`[${context.requestId}] User registered/updated:`, result.data);
@@ -65,11 +44,6 @@ export class RegisterUserTool implements ToolHandler<RegisterUserArgsType> {
 
     } catch (error) {
       console.error(`[${context.requestId}] Register user failed:`, error);
-
-      if (error instanceof Error && error.message.includes('validation')) {
-        return { ok: false, error: 'Nombre de usuario no válido. Proporciona un nombre completo.' };
-      }
-
       return {
         ok: false,
         error: error instanceof Error ? error.message : 'Error desconocido al registrar usuario'

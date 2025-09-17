@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { UserService } from '@/lib/user-service'
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,14 +12,16 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const user = await prisma.user.create({
-      data: {
-        name,
-        phone,
-      },
-    })
+    const result = await UserService.registerUser(name, phone)
 
-    return NextResponse.json(user, { status: 201 })
+    if (result.success) {
+      return NextResponse.json(result.data, { status: 201 })
+    } else {
+      return NextResponse.json(
+        { error: result.error },
+        { status: 400 }
+      )
+    }
   } catch (error) {
     console.error('Error creating user:', error)
     return NextResponse.json(

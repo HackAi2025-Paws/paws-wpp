@@ -1,34 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { Species } from '@prisma/client'
+import { PetService } from '@/lib/pet-service'
 
 export async function POST(request: NextRequest) {
   try {
-    const { name, dateOfBirth, species } = await request.json()
+    const { name, dateOfBirth, species, ownerPhone } = await request.json()
 
-    if (!name || !dateOfBirth || !species) {
+    if (!name || !dateOfBirth || !species || !ownerPhone) {
       return NextResponse.json(
-        { error: 'Name, dateOfBirth, and species are required' },
+        { error: 'Name, dateOfBirth, species, and ownerPhone are required' },
         { status: 400 }
       )
     }
 
-    if (!Object.values(Species).includes(species)) {
+    const result = await PetService.registerPet(name, dateOfBirth, species, ownerPhone)
+
+    if (result.success) {
+      return NextResponse.json(result.data, { status: 201 })
+    } else {
       return NextResponse.json(
-        { error: 'Species must be CAT or DOG' },
+        { error: result.error },
         { status: 400 }
       )
     }
-
-    const pet = await prisma.pet.create({
-      data: {
-        name,
-        dateOfBirth: new Date(dateOfBirth),
-        species,
-      },
-    })
-
-    return NextResponse.json(pet, { status: 201 })
   } catch (error) {
     console.error('Error creating pet:', error)
     return NextResponse.json(
