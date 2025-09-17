@@ -205,7 +205,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 });
 
 async function runServer() {
-  const mode = (process.env.MCP_TRANSPORT || 'stdio').toLowerCase();
+  const mode = (process.env.MCP_MODE || 'stdio').toLowerCase();
   if (mode === 'stdio') {
     const transport = new StdioServerTransport();
     await server.connect(transport);
