@@ -231,8 +231,8 @@ async function runServer() {
       const transport = new StreamableHTTPServerTransport({
         sessionIdGenerator: () => randomUUID(),
         enableDnsRebindingProtection: true,
-        // Si necesitas compatibilidad con SSE legacy, muchos ejemplos lo exponen en paralelo;
-        // Streamable HTTP es el recomendado actual. :contentReference[oaicite:1]{index=1}
+        // If you need SSE legacy compatibility, many examples expose it in parallel;
+        // Streamable HTTP is the current recommended approach. :contentReference[oaicite:1]{index=1}
       });
 
       await server.connect(transport);
