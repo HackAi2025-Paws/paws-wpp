@@ -359,7 +359,7 @@ async function runServer() {
     app.all('/mcp', async (req, res) => {
       const transport = new StreamableHTTPServerTransport({
         sessionIdGenerator: () => randomUUID(),
-        enableDnsRebindingProtection: true,
+        enableDnsRebindingProtection: false,
         // If you need SSE legacy compatibility, many examples expose it in parallel;
         // Streamable HTTP is the current recommended approach. :contentReference[oaicite:1]{index=1}
       });
