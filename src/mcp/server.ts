@@ -217,7 +217,7 @@ async function runServer() {
     const app = express();
     app.use(express.json());
 
-    // CORS (exponer Mcp-Session-Id si vas a consumir desde un browser)
+    // CORS (expose Mcp-Session-Id if consuming from a browser)
     app.use((req, res, next) => {
       res.header('Access-Control-Allow-Origin', process.env.CORS_ORIGIN || '*');
       res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Mcp-Session-Id');
