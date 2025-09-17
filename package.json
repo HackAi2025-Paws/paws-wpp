@@ -30,6 +30,7 @@
     "@modelcontextprotocol/sdk": "^1.18.0",
     "@prisma/client": "^6.16.1",
     "@types/redis": "^4.0.11",
+    "dotenv": "^17.2.2",
     "next": "15.5.3",
     "react": "19.1.0",
     "react-dom": "19.1.0",
