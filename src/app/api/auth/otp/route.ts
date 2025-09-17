@@ -12,7 +12,8 @@ export async function POST(request: NextRequest) {
     const result = await authService.generateOTP(phone);
 
     if (!result.success) {
-      return NextResponse.json({ error: result.error }, { status: 500 });
+      const status = result.errorType === 'NOT_FOUND' ? 404 : 500;
+      return NextResponse.json({ error: result.error }, { status });
     }
 
     return NextResponse.json({

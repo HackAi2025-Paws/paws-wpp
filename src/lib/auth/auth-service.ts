@@ -7,7 +7,7 @@ const prisma = new PrismaClient();
 
 export class AuthService {
 
-  async generateOTP(phone: string): Promise<{ success: boolean; otp?: string; error?: string }> {
+  async generateOTP(phone: string): Promise<{ success: boolean; otp?: string; error?: string; errorType?: string }> {
     try {
 
       const normalizedPhone = PhoneNormalizer.normalize(phone);
@@ -22,7 +22,11 @@ export class AuthService {
       const user = await prisma.user.findUnique({ where: { phone: normalizedPhone } });
 
       if (!user) {
-        throw new Error("Usuario desconocido")
+        return {
+          success: false,
+          error: 'Usuario desconocido',
+          errorType: 'NOT_FOUND'
+        };
       }
 
       const otp = randomInt(100000, 999999).toString();
