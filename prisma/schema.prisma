@@ -75,6 +75,18 @@ model Pending {
   pet            Pet             @relation(fields: [petId], references: [id])
   userId         Int
   petId          Int
+  reminder       Reminder[]
+}
+
+model Reminder {
+  id           Int      @id @default(autoincrement())
+  pendingId    Int
+  scheduledFor DateTime
+  sent         Boolean  @default(false)
+  pending      Pending  @relation(fields: [pendingId], references: [id], onDelete: Cascade)
+
+  @@index([scheduledFor])
+  @@index([sent])
 }
 
 model Consultation {

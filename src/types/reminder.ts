@@ -15,6 +15,7 @@ export type ReminderStrategy =
       frequency: 'DAILY' | 'WEEKLY' | 'MONTHLY';
       dayOfWeek?: 'MONDAY' | 'TUESDAY' | 'WEDNESDAY' | 'THURSDAY' | 'FRIDAY' | 'SATURDAY' | 'SUNDAY';
       time: string;
+      maxOccurrences?: number;
     };
 
 export type ReminderConfig = ReminderStrategy[];
@@ -44,7 +45,8 @@ export const recurringReminderSchema = z.object({
     dayOfWeek: dayOfWeekEnum.optional(),
     time: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, {
         message: "Formato de hora inválido. Debe ser HH:MM"
-    })
+    }),
+    maxOccurrences: z.number().int().positive().optional()
 });
 
 export const reminderStrategySchema = z.discriminatedUnion('type', [
