@@ -1,6 +1,7 @@
 import { WhatsAppService } from './twilio'
 import { getAgentLoop } from './agent-loop'
 import { getSessionStore } from './session-store'
+import { getAudioTranscriptionService } from './audio-transcription-service'
 
 export interface ProcessedMessage {
   type: 'text' | 'audio' | 'media'
@@ -57,10 +58,39 @@ export class WhatsAppMessageHandler {
   private static async handleAudioMessage(message: ProcessedMessage): Promise<void> {
     console.log(`Processing audio from ${message.from}: ${message.audioBuffer?.length} bytes`)
 
-    await WhatsAppService.sendMessage(
-      message.from,
-      `Recibí tu mensaje de audio (${message.audioBuffer?.length} bytes)`
-    )
+    if (!message.audioBuffer) {
+      await WhatsAppService.sendMessage(message.from, 'Lo siento, no pude procesar tu mensaje de audio.')
+      return
+    }
+
+    try {
+      const transcriptionService = getAudioTranscriptionService()
+      const transcriptionResult = await transcriptionService.transcribeBuffer(
+        message.audioBuffer,
+        message.mediaType
+      )
+
+      if (!transcriptionResult.transcript || transcriptionResult.transcript.trim().length === 0) {
+        await WhatsAppService.sendMessage(
+          message.from,
+          'No pude entender lo que dijiste en el audio. Por favor intenta de nuevo o escríbeme un mensaje de texto.'
+        )
+        return
+      }
+
+      console.log(`Audio transcribed from ${message.from}: "${transcriptionResult.transcript}" (confidence: ${transcriptionResult.confidence})`)
+
+      const agentLoop = getAgentLoop()
+      const response = await agentLoop.execute(message.from, transcriptionResult.transcript, message.messageId)
+      await WhatsAppService.sendMessage(message.from, response)
+
+    } catch (error) {
+      console.error('Error transcribing audio message:', error)
+      await WhatsAppService.sendMessage(
+        message.from,
+        'Lo siento, ocurrió un error procesando tu mensaje de audio. Por favor intenta enviar un mensaje de texto.'
+      )
+    }
   }
 
   private static async handleMediaMessage(message: ProcessedMessage): Promise<void> {
