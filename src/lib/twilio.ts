@@ -44,10 +44,10 @@ export class WhatsAppService {
         body: '',
         contentSid: templateName,
         contentVariables: JSON.stringify(
-            variables.reduce((obj, value, index) => {
+            variables.reduce((obj: Record<string, string>, value, index) => {
               obj[`${index + 1}`] = value;
               return obj;
-            }, {})
+            }, {} as Record<string, string>)
         )
       });
 

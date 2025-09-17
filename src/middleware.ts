@@ -2,11 +2,12 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import jwt from 'jsonwebtoken';
 
-const JWT_SECRET = process.env.JWT_SECRET || (process.env.NODE_ENV === 'development' ? 'tu_clave_secreta_por_defecto' : undefined);
+const JWT_SECRET = (() => {
+  if (process.env.JWT_SECRET) return process.env.JWT_SECRET;
+  if (process.env.NODE_ENV === 'development') return 'tu_clave_secreta_por_defecto';
+  throw new Error('JWT_SECRET environment variable must be set in production');
+})();
 
-if (!JWT_SECRET) {
-  throw new Error('JWT_SECRET environment variable must be set in production.');
-}
 // Rutas que NO requieren autenticación (públicas)
 const PUBLIC_ROUTES = [
   '/api/auth/login',

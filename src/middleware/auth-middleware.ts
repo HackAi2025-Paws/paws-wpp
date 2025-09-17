@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
 
-const JWT_SECRET = process.env.JWT_SECRET || (process.env.NODE_ENV === 'development' ? 'tu_clave_secreta_por_defecto' : undefined);
+const JWT_SECRET = (() => {
+  if (process.env.JWT_SECRET) return process.env.JWT_SECRET;
+  if (process.env.NODE_ENV === 'development') return 'tu_clave_secreta_por_defecto';
+  throw new Error('JWT_SECRET environment variable must be set in production');
+})();
 
 export interface JWTPayload {
   sub: string;
