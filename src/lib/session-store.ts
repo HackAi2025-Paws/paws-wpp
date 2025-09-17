@@ -138,10 +138,44 @@ export class SessionStore {
 
   async end(phone: string): Promise<void> {
     try {
-      const key = this.getSessionKey(phone);
-      await this.client.del(key);
+      const sessionKey = this.getSessionKey(phone);
+
+      // Delete the main session data
+      await this.client.del(sessionKey);
+
+      // Also clean up any seen message keys for this phone/session
+      // Note: This is a comprehensive cleanup to ensure no stale data remains
+      const normalizedPhone = phone.replace(/[^\d+]/g, '');
+      const seenPattern = `wh:seen:*`;
+      const seenKeys = await this.client.keys(seenPattern);
+
+      if (seenKeys.length > 0) {
+        // Delete all seen message keys (they expire in 1 hour anyway, but clean up for completeness)
+        await this.client.del(seenKeys);
+        console.log(`Cleaned up ${seenKeys.length} seen message keys for session end`);
+      }
+
+      console.log(`Session completely terminated and all data cleared for ${phone}`);
     } catch (error) {
       console.error('Failed to end session:', error);
+      throw error;
+    }
+  }
+
+  async clearHistory(phone: string): Promise<void> {
+    try {
+      const key = this.getSessionKey(phone);
+      // Create a new empty session
+      const newSession: Session = {
+        status: 'active',
+        messages: [],
+        updatedAt: Date.now()
+      };
+
+      await this.save(phone, newSession);
+      console.log(`Session history cleared for ${phone}`);
+    } catch (error) {
+      console.error('Failed to clear session history:', error);
       throw error;
     }
   }
