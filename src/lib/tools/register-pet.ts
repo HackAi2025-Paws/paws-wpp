@@ -7,8 +7,7 @@ import { RegisterPetSchema, RegisterPetInput } from '@/mcp/types';
 const RegisterPetArgs = z.object({
   name: z.string().min(1, 'Pet name is required'),
   dateOfBirth: z.string().min(1, 'Date of birth is required'),
-  species: z.enum(['CAT', 'DOG'], { errorMap: () => ({ message: 'Species must be CAT or DOG' }) }),
-  ownerPhone: z.string().min(6, 'Owner phone is required')
+  species: z.enum(['CAT', 'DOG'], { errorMap: () => ({ message: 'Species must be CAT or DOG' }) })
 });
 
 type RegisterPetInputType = z.infer<typeof RegisterPetArgs>;
