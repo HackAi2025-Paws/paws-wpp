@@ -1,18 +1,21 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { PendingCategory, PendingStatus } from '@prisma/client';
 import {JWTPayload, withAuth} from "@/middleware/auth-middleware";
+import { z } from 'zod';
+import {reminderConfigSchema} from "@/types/reminder";
 
 export const GET = withAuth(async (req: NextRequest, token: JWTPayload) => {
   try {
-    const userId = req.nextUrl.searchParams.get('userId');
+    const userId = token.sub;
+    const petId = req.nextUrl.searchParams.get('petId');
     const status = req.nextUrl.searchParams.get('status') as PendingStatus | null;
     const category = req.nextUrl.searchParams.get('category') as PendingCategory | null;
 
     const where: any = {};
 
     if (userId) where.userId = parseInt(userId);
+    if (petId) where.petId = parseInt(petId);
     if (status) where.status = status;
     if (category) where.category = category;
 
@@ -24,6 +27,12 @@ export const GET = withAuth(async (req: NextRequest, token: JWTPayload) => {
             id: true,
             name: true,
             phone: true
+          }
+        },
+        pet: {
+          select:{
+            id: true,
+            name: true,
           }
         }
       },
@@ -40,26 +49,44 @@ export const GET = withAuth(async (req: NextRequest, token: JWTPayload) => {
   }
 });
 
+const createPendingSchema = z.object({
+  title: z.string().min(1, "El título es obligatorio"),
+  description: z.string().optional(),
+  category: z.nativeEnum(PendingCategory),
+  date: z.string().optional(),
+  location: z.string().optional(),
+  petId: z.number(),
+  reminderConfig: reminderConfigSchema.optional()
+});
+
+type CreatePendingRequest = z.infer<typeof createPendingSchema>;
+
 export const POST = withAuth(async (req: NextRequest, token: JWTPayload) => {
   try {
-    const data = await req.json();
+    const rawData = await req.json();
 
-    if (!data.title || !data.status || !data.category || !data.userId) {
+    const result = createPendingSchema.safeParse(rawData);
+
+    if (!result.success) {
       return NextResponse.json(
-        { error: 'Faltan campos obligatorios (título, estado, categoría, userId)' },
-        { status: 400 }
+          { error: 'Datos inválidos', issues: result.error.issues },
+          { status: 400 }
       );
     }
+
+    const data = result.data;
 
     const pending = await prisma.pending.create({
       data: {
         title: data.title,
         description: data.description,
-        status: data.status,
+        status: PendingStatus.PENDING,
+        location: data.location,
+        reminderConfig: data.reminderConfig,
         category: data.category,
         date: data.date ? new Date(data.date) : null,
-        reminderConfig: data.reminderConfig,
-        userId: parseInt(data.userId)
+        userId: parseInt(token.sub),
+        petId : data.petId
       }
     });
 
@@ -73,9 +100,9 @@ export const POST = withAuth(async (req: NextRequest, token: JWTPayload) => {
   }
 });
 
-export async function PUT(request: NextRequest) {
+export const PUT = withAuth(async (req: NextRequest, token: JWTPayload) => {
   try {
-    const data = await request.json();
+    const data = await req.json();
 
     if (!data.id) {
       return NextResponse.json(
@@ -85,7 +112,6 @@ export async function PUT(request: NextRequest) {
     }
 
     const id = parseInt(data.id);
-
 
     const existingPending = await prisma.pending.findUnique({
       where: { id }
@@ -98,6 +124,13 @@ export async function PUT(request: NextRequest) {
       );
     }
 
+    if (existingPending.userId !== parseInt(token.sub)) {
+      return NextResponse.json(
+        { error: 'No tienes permiso para actualizar esta tarea' },
+        { status: 403 }
+      );
+    }
+
     const updatedPending = await prisma.pending.update({
       where: { id },
       data: {
@@ -107,7 +140,7 @@ export async function PUT(request: NextRequest) {
         category: data.category,
         date: data.date ? new Date(data.date) : null,
         reminderConfig: data.reminderConfig,
-        userId: data.userId ? parseInt(data.userId) : undefined
+        location: data.location
       }
     });
 
@@ -119,11 +152,11 @@ export async function PUT(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});
 
-export async function DELETE(request: NextRequest) {
+export const DELETE = withAuth(async (req: NextRequest, token: JWTPayload) => {
   try {
-    const id = request.nextUrl.searchParams.get('id');
+    const id = req.nextUrl.searchParams.get('id');
 
     if (!id) {
       return NextResponse.json(
@@ -132,8 +165,28 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
+    const pendingId = parseInt(id);
+
+    const existingPending = await prisma.pending.findUnique({
+      where: { id: pendingId }
+    });
+
+    if (!existingPending) {
+      return NextResponse.json(
+        { error: 'Tarea pendiente no encontrada' },
+        { status: 404 }
+      );
+    }
+
+    if (existingPending.userId !== parseInt(token.sub)) {
+      return NextResponse.json(
+        { error: 'No tienes permiso para eliminar esta tarea' },
+        { status: 403 }
+      );
+    }
+
     await prisma.pending.delete({
-      where: { id: parseInt(id) }
+      where: { id: pendingId }
     });
 
     return NextResponse.json({ success: true });
@@ -144,4 +197,4 @@ export async function DELETE(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});
