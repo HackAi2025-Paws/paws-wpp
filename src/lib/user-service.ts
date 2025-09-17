@@ -1,4 +1,15 @@
 import { prisma } from './prisma'
+import { InputNormalizer } from './input-normalizer'
+
+export interface UserRegistrationResult {
+  success: boolean
+  data?: {
+    id: number
+    name: string
+    phone: string
+  }
+  error?: string
+}
 
 export class UserService {
   static async findUserByPhone(phoneNumber: string) {
@@ -21,6 +32,72 @@ export class UserService {
     } catch (error) {
       console.error('Error finding user by phone:', error)
       return null
+    }
+  }
+
+  static async registerUser(name: string, phone: string): Promise<UserRegistrationResult> {
+    try {
+      // Normalize the name input
+      const normalizedName = InputNormalizer.normalizeName(name)
+
+      if (!normalizedName || normalizedName.trim().length === 0) {
+        return {
+          success: false,
+          error: 'Nombre de usuario no válido. Proporciona un nombre completo.'
+        }
+      }
+
+      // Upsert user (create or update if exists)
+      const user = await prisma.user.upsert({
+        where: { phone },
+        update: { name: normalizedName },
+        create: { name: normalizedName, phone }
+      })
+
+      return {
+        success: true,
+        data: {
+          id: user.id,
+          name: user.name,
+          phone: user.phone
+        }
+      }
+    } catch (error) {
+      console.error('Error registering user:', error)
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Error desconocido al registrar usuario'
+      }
+    }
+  }
+
+  static async fetchUserByPhone(phone: string): Promise<UserRegistrationResult> {
+    try {
+      const user = await prisma.user.findUnique({
+        where: { phone }
+      })
+
+      if (!user) {
+        return {
+          success: false,
+          error: 'Usuario no encontrado'
+        }
+      }
+
+      return {
+        success: true,
+        data: {
+          id: user.id,
+          name: user.name,
+          phone: user.phone
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching user by phone:', error)
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Error desconocido al buscar usuario'
+      }
     }
   }
 
