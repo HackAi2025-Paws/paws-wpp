@@ -1,5 +1,6 @@
 import { prisma } from './prisma'
 import { InputNormalizer } from './input-normalizer'
+import {PhoneNormalizer} from "@/lib/phone-normalizer";
 
 export interface UserRegistrationResult {
   success: boolean
@@ -13,8 +14,11 @@ export interface UserRegistrationResult {
 
 export class UserService {
   static async findUserByPhone(phoneNumber: string) {
-    // Clean the phone number (remove whatsapp: prefix and normalize)
-    const cleanPhone = phoneNumber.replace('whatsapp:', '').replace('+', '')
+    const cleanPhone = PhoneNormalizer.normalize(phoneNumber)
+
+    if (cleanPhone === null) {
+      throw new Error("El teléfono no es válido")
+    }
 
     try {
       const user = await prisma.user.findFirst({

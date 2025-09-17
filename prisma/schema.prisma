@@ -28,9 +28,15 @@ enum PendingCategory {
   AESTHETICS
 }
 
+enum UserRole {
+  CLIENT
+  VETERINARIAN
+}
+
 model User {
   id            Int            @id @default(autoincrement())
   name          String
+  role          UserRole       @default(CLIENT)
   phone         String         @unique
   pets          Pet[]          @relation("UserPets")
   pendings      Pending[]

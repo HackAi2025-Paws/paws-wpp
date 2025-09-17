@@ -1,12 +1,71 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, UserRole } from '@prisma/client';
 import { randomInt } from 'crypto';
 import { WhatsAppService } from '../twilio';
 import {PhoneNormalizer} from "@/lib/phone-normalizer";
-
-const prisma = new PrismaClient();
+import { prisma } from '../prisma';
 
 export class AuthService {
 
+  async registerVeterinarian(data: { name: string; phone: string }) {
+    try {
+      const normalizedPhone = PhoneNormalizer.normalize(data.phone);
+
+      if (!normalizedPhone) {
+        return {
+          success: false,
+          error: 'Número de teléfono inválido',
+          statusCode: 400
+        };
+      }
+
+      const existingUser = await prisma.user.findUnique({
+        where: { phone: normalizedPhone }
+      });
+
+      if (existingUser) {
+        return {
+          success: false,
+          error: 'Este número de teléfono ya está registrado',
+          statusCode: 409
+        };
+      }
+
+      const newUser = await prisma.user.create({
+        data: {
+          name: data.name,
+          phone: normalizedPhone,
+          role: UserRole.VETERINARIAN
+        }
+      });
+
+      const otpResult = await this.generateOTP(normalizedPhone);
+
+      if (!otpResult.success) {
+        return {
+          success: false,
+          error: 'Error al generar código de verificación',
+          statusCode: 500
+        };
+      }
+
+      return {
+        success: true,
+        user: {
+          id: newUser.id,
+          name: newUser.name,
+          phone: newUser.phone
+        },
+        otp: process.env.NODE_ENV === 'development' ? otpResult.otp : undefined
+      };
+    } catch (error) {
+      console.error('Error al registrar veterinario:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Error desconocido',
+        statusCode: 500
+      };
+    }
+  }
   async generateOTP(phone: string): Promise<{ success: boolean; otp?: string; error?: string; errorType?: string }> {
     try {
 
@@ -71,12 +130,18 @@ export class AuthService {
     }
   }
 
-  async verifyOTPAndLogin(phone: string, token: string) {
-
+  async verifyOTPAndLogin(phone: string, token: string): Promise<
+    | { success: true; user: any }
+    | { success: false; error: string; statusCode: number }
+  > {
     const normalizedPhone = PhoneNormalizer.normalize(phone);
 
     if (!normalizedPhone) {
-      throw new Error('Número de teléfono inválido');
+      return {
+        success: false,
+        error: 'Número de teléfono inválido',
+        statusCode: 400
+      };
     }
 
     const authToken = await prisma.authToken.findFirst({
@@ -92,7 +157,11 @@ export class AuthService {
     });
 
     if (!authToken) {
-      throw new Error('Token inválido o expirado');
+      return {
+        success: false,
+        error: 'Token inválido o expirado',
+        statusCode: 401
+      };
     }
 
     await prisma.authToken.update({
@@ -101,6 +170,7 @@ export class AuthService {
     });
 
     return {
+      success: true,
       user: authToken.user
     };
   }

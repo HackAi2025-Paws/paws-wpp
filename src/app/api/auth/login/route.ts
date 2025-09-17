@@ -20,34 +20,31 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Teléfono y token son requeridos' }, { status: 400 });
     }
 
-    try {
+    const result = await authService.verifyOTPAndLogin(phone, token);
 
-      const result = await authService.verifyOTPAndLogin(phone, token);
+    if (!result.success) {
+      return NextResponse.json({ error: result.error }, { status: result.statusCode });
+    }
 
-      const jwtPayload = {
-        sub: result.user.id,
+    const jwtPayload = {
+      sub: result.user.id,
+      name: result.user.name,
+      phone: result.user.phone
+    };
+
+    const accessToken = jwt.sign(jwtPayload, JWT_SECRET, {
+      expiresIn: JWT_EXPIRES_IN as unknown as number
+    });
+
+    return NextResponse.json({
+      success: true,
+      accessToken,
+      user: {
+        id: result.user.id,
         name: result.user.name,
         phone: result.user.phone
-      };
-
-      const accessToken = jwt.sign(jwtPayload, JWT_SECRET, {
-        expiresIn: JWT_EXPIRES_IN as unknown as number
-      });
-
-      return NextResponse.json({
-        success: true,
-        accessToken,
-        user: {
-          id: result.user.id,
-          name: result.user.name,
-          phone: result.user.phone
-        }
-      });
-    } catch (error) {
-      return NextResponse.json({
-        error: error instanceof Error ? error.message : 'Error de autenticación'
-      }, { status: 401 });
-    }
+      }
+    });
   } catch (error) {
     console.error('Error al procesar login:', error);
     return NextResponse.json({
