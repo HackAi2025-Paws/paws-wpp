@@ -1,8 +1,12 @@
 #!/usr/bin/env node
 
 import { spawn } from 'child_process';
+import { configDotenv } from 'dotenv';
 import path from 'path';
+import { createClient } from 'redis';
 import { fileURLToPath } from 'url';
+
+configDotenv();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -58,18 +62,8 @@ function runCommand(command, args = [], options = {}) {
 
 async function main() {
   try {
-    // Step 1: Setup Redis
-    console.log('📦 Setting up Redis...');
-    if (shouldRegenerate) {
-      await runCommand('npm', ['run', 'redis:reset']);
-      console.log('✅ Redis reset and started');
-    } else {
-      await runCommand('npm', ['run', 'redis:up']);
-      console.log('✅ Redis started');
-    }
-
-    // Wait a moment for Redis to be ready
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    // Step 1: Setup Redis (local via docker-compose o externo por REDIS_MODE/REDIS_URL)
+    await setupRedis();
 
     // Step 2: Setup Database
     console.log('🗄️  Setting up Database...');
@@ -147,6 +141,49 @@ async function main() {
     console.log('   • Run with --verbose for detailed logs');
     process.exit(1);
   }
+}
+
+function getRedisMode() {
+  const mode = (process.env.REDIS_MODE || 'local').toLowerCase();
+  if (!['local', 'external'].includes(mode)) {
+    throw new Error(`Invalid REDIS_MODE: ${mode} (use "local" or "external")`);
+  }
+  return mode;
+}
+
+async function setupRedis() {
+  console.log('📦 Setting up Redis...');
+
+  const mode = getRedisMode();
+
+  if (mode === 'external') {
+    const url = process.env.REDIS_URL;
+    if (!url) throw new Error('Missing REDIS_URL in external mode');
+
+    console.log(`🔌 Usando Redis externo desde REDIS_URL`);
+    const client = createClient({ url });
+    try {
+      await client.connect();
+      const pong = await client.ping();
+      if (pong !== 'PONG') throw new Error(`PING inesperado: ${pong}`);
+      console.log('✅ External Redis is healthy');
+    } finally {
+      await client.disconnect().catch(() => {});
+    }
+    return { mode: 'external' };
+  }
+
+  // 🔹 modo local
+  if (shouldRegenerate) {
+    await runCommand('npm', ['run', 'redis:reset']);
+    console.log('✅ Redis reset and started (local)');
+  } else {
+    await runCommand('npm', ['run', 'redis:up']);
+    console.log('✅ Redis started (local)');
+  }
+
+  await new Promise((r) => setTimeout(r, 2000));
+  return { mode: 'local' };
 }
 
 // Help message
