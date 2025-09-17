@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { authService } from '@/lib/auth/auth-service';
 import jwt from 'jsonwebtoken';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'tu_clave_secreta_por_defecto';
+const JWT_SECRET = (() => {
+  if (process.env.JWT_SECRET) return process.env.JWT_SECRET;
+  if (process.env.NODE_ENV === 'development') return 'tu_clave_secreta_por_defecto';
+  throw new Error('JWT_SECRET environment variable must be set in production');
+})();
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
 
 export async function POST(request: NextRequest) {
