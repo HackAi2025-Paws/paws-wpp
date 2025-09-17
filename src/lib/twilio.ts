@@ -30,6 +30,35 @@ export class WhatsAppService {
     }
   }
 
+  static async sendTemplateMessage(to: string, templateName: string, variables: string[]) {
+    try {
+      if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN) {
+        throw new Error('Credenciales de Twilio no configuradas');
+      }
+
+      const toWhatsApp = to.startsWith('whatsapp:') ? to : `whatsapp:${to}`;
+
+      const result = await twilioClient.messages.create({
+        from: `whatsapp:${whatsappNumber}`,
+        to: toWhatsApp,
+        body: '',
+        contentSid: templateName,
+        contentVariables: JSON.stringify(
+            variables.reduce((obj, value, index) => {
+              obj[`${index + 1}`] = value;
+              return obj;
+            }, {})
+        )
+      });
+
+      console.log(`WhatsApp template message sent: ${result.sid}`);
+      return result;
+    } catch (error) {
+      console.error('Failed to send WhatsApp template message:', error);
+      throw error;
+    }
+  }
+
   static async sendMediaMessage(to: string, message: string, mediaUrl: string) {
     try {
       // Clean the response before sending
