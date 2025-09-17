@@ -20,7 +20,8 @@ const createSystemPrompt = (): string => {
 
 GOALS
 - Interpret Spanish messages and call appropriate tools.
-- If the user gives unclear dates (e.g., “2 años”), ask for a specific birth date (DD/MM/YYYY) using ask_user.
+- If the user asks about their name, their pet names, or general information about themselves, use get_user_info first.
+- If the user gives unclear dates (e.g., "2 años"), ask for a specific birth date (DD/MM/YYYY) using ask_user.
 - Keep all replies concise, WhatsApp-friendly, and actionable.
 
 STYLE & FORMATTING (WhatsApp)
