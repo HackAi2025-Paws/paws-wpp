@@ -12,11 +12,39 @@ enum Species {
   DOG
 }
 
+enum PendingStatus {
+  PENDING
+  COMPLETED
+  CANCELLED
+}
+
+enum PendingCategory {
+  USER_CREATED
+  VACCINE
+  MEDICATION
+}
+
 model User {
-  id    Int    @id @default(autoincrement())
-  name  String
-  phone String @unique
-  pets  Pet[]  @relation("UserPets")
+  id        Int         @id @default(autoincrement())
+  name      String
+  phone     String      @unique
+  pets      Pet[]       @relation("UserPets")
+  pendings  Pending[]
+  AuthToken AuthToken[]
+}
+
+model AuthToken {
+  id        Int      @id @default(autoincrement())
+  token     String   @unique
+  phone     String
+  userId    Int
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@index([token])
+  @@index([phone])
 }
 
 model Pet {
@@ -25,4 +53,16 @@ model Pet {
   dateOfBirth DateTime
   species     Species
   owners      User[]   @relation("UserPets")
+}
+
+model Pending {
+  id             Int             @id @default(autoincrement())
+  title          String
+  description    String?
+  status         PendingStatus
+  category       PendingCategory
+  date           DateTime?
+  reminderConfig Json?
+  user           User            @relation(fields: [userId], references: [id])
+  userId         Int
 }

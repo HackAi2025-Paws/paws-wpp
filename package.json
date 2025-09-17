@@ -30,6 +30,8 @@
     "@modelcontextprotocol/sdk": "^1.18.0",
     "@prisma/client": "^6.16.1",
     "@types/redis": "^4.0.11",
+    "jsonwebtoken": "^9.0.2",
+    "libphonenumber-js": "^1.12.17",
     "next": "15.5.3",
     "react": "19.1.0",
     "react-dom": "19.1.0",
@@ -41,6 +43,7 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^20.19.14",
     "@types/react": "^19",
     "@types/react-dom": "^19",
