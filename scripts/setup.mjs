@@ -146,7 +146,7 @@ async function main() {
 function getRedisMode() {
   const mode = (process.env.REDIS_MODE || 'local').toLowerCase();
   if (!['local', 'external'].includes(mode)) {
-    throw new Error(`REDIS_MODE inválido: ${mode} (usa "local" o "external")`);
+    throw new Error(`Invalid REDIS_MODE: ${mode} (use "local" or "external")`);
   }
   return mode;
 }
@@ -158,7 +158,7 @@ async function setupRedis() {
 
   if (mode === 'external') {
     const url = process.env.REDIS_URL;
-    if (!url) throw new Error('Falta REDIS_URL en modo external');
+    if (!url) throw new Error('Missing REDIS_URL in external mode');
 
     console.log(`🔌 Usando Redis externo desde REDIS_URL`);
     const client = createClient({ url });
