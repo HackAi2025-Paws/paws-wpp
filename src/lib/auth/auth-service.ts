@@ -22,7 +22,7 @@ export class AuthService {
       const user = await prisma.user.findUnique({ where: { phone: normalizedPhone } });
 
       if (!user) {
-        throw Error("Usuario desconocido")
+        throw new Error("Usuario desconocido")
       }
 
       const otp = randomInt(100000, 999999).toString();
