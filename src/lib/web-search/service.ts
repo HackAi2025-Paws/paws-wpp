@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { SearchConfig, WebSearchRequest, WebHit, WebSearchToolResult } from './types';
 import { SearchCache } from './cache';
 import { TavilyProvider } from './providers/tavily';

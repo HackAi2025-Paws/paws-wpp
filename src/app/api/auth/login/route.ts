@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authService } from '@/lib/auth/auth-service';
 import jwt from 'jsonwebtoken';
+import { configDotenv } from 'dotenv';
+
+configDotenv();
 
 const JWT_SECRET = (() => {
   if (process.env.JWT_SECRET) return process.env.JWT_SECRET;
@@ -28,7 +31,7 @@ export async function POST(request: NextRequest) {
       };
 
       const accessToken = jwt.sign(jwtPayload, JWT_SECRET, {
-        expiresIn: JWT_EXPIRES_IN
+        expiresIn: JWT_EXPIRES_IN as unknown as number
       });
 
       return NextResponse.json({

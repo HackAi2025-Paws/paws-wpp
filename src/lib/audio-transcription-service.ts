@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { createClient } from '@deepgram/sdk'
 
 export interface TranscriptionResult {
@@ -15,7 +16,7 @@ export class AudioTranscriptionService {
       throw new Error('DEEPGRAM_API_KEY environment variable is required')
     }
 
-    this.client = createClient({ apiKey })
+    this.client = createClient({ key: apiKey })
   }
 
   async transcribeBuffer(audioBuffer: Buffer, mimeType?: string): Promise<TranscriptionResult> {

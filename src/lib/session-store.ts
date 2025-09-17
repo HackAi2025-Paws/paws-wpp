@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { createClient, RedisClientType } from 'redis';
 import Anthropic from '@anthropic-ai/sdk';
 

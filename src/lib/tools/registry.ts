@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 import { ToolHandler } from './types';
 import { RegisterUserTool } from './register-user';
 import { ListPetsTool } from './list-pets';
