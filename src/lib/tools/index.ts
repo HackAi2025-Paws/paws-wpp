@@ -7,5 +7,6 @@ export { RegisterUserTool } from './register-user';
 export { ListPetsTool } from './list-pets';
 export { RegisterPetTool } from './register-pet';
 export { AskUserTool } from './ask-user';
+export { GetUserInfoTool } from './get-user-info';
 export { WebSearchTool } from './web-search';
 export { MapSearchTool } from './map-search';
