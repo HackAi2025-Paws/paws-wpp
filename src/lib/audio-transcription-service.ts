@@ -21,11 +21,12 @@ export class AudioTranscriptionService {
 
   async transcribeBuffer(audioBuffer: Buffer, mimeType?: string): Promise<TranscriptionResult> {
     try {
+      const language = 'es';
       const { result, error } = await this.client.listen.prerecorded.transcribeFile(
         audioBuffer,
         {
           model: 'nova-2',
-          language: 'es',
+          language,
           smart_format: true,
           punctuate: true,
           paragraphs: false,
@@ -46,7 +47,7 @@ export class AudioTranscriptionService {
       return {
         transcript: alternative.transcript || '',
         confidence: alternative.confidence || 0,
-        language: result.results.language || 'es'
+        language: language
       }
     } catch (error) {
       console.error('Audio transcription failed:', error)
@@ -56,11 +57,12 @@ export class AudioTranscriptionService {
 
   async transcribeUrl(audioUrl: string, authHeaders?: Record<string, string>): Promise<TranscriptionResult> {
     try {
+      const language = 'es'
       const { result, error } = await this.client.listen.prerecorded.transcribeUrl(
         { url: audioUrl },
         {
           model: 'nova-2',
-          language: 'es',
+          language,
           smart_format: true,
           punctuate: true,
           paragraphs: false,
@@ -81,7 +83,7 @@ export class AudioTranscriptionService {
       return {
         transcript: alternative.transcript || '',
         confidence: alternative.confidence || 0,
-        language: result.results.language || 'es'
+        language: language,
       }
     } catch (error) {
       console.error('Audio transcription failed:', error)
