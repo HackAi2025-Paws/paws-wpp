@@ -13,10 +13,16 @@ import {
   ListPetsSchema,
   RegisterPetSchema,
   AskUserSchema,
+  GetConsultationSchema,
+  ListConsultationsSchema,
+  CreateConsultationMcpSchema,
   RegisterUserInput,
   ListPetsInput,
   RegisterPetInput,
   AskUserInput,
+  GetConsultationInput,
+  ListConsultationsInput,
+  CreateConsultationMcpInput,
 } from './types';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { randomUUID } from 'crypto';
@@ -111,6 +117,84 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           required: ['message'],
         },
       },
+      {
+        name: 'get_consultation',
+        description: 'Get detailed information about a specific consultation by ID',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            id: {
+              type: 'number',
+              description: 'Consultation ID',
+            },
+          },
+          required: ['id'],
+        },
+      },
+      {
+        name: 'list_consultations',
+        description: 'List consultations with minimal information, filtered by pet or user',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            petId: {
+              type: 'number',
+              description: 'Pet ID to filter consultations (optional)',
+            },
+            userId: {
+              type: 'number',
+              description: 'User ID to filter consultations (optional)',
+            },
+          },
+          additionalProperties: false,
+        },
+      },
+      {
+        name: 'create_consultation',
+        description: 'Create a new veterinary consultation for a pet. Handles multiple pets scenario automatically.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            ownerPhone: {
+              type: 'string',
+              description: 'Owner phone number',
+            },
+            petName: {
+              type: 'string',
+              description: 'Pet name (case insensitive)',
+            },
+            date: {
+              type: 'string',
+              description: 'Consultation date in ISO format (YYYY-MM-DDTHH:mm:ss.sssZ)',
+            },
+            chiefComplaint: {
+              type: 'string',
+              description: 'Main reason for the consultation',
+            },
+            findings: {
+              type: 'string',
+              description: 'Clinical findings (optional)',
+            },
+            diagnosis: {
+              type: 'string',
+              description: 'Veterinary diagnosis (optional)',
+            },
+            treatment: {
+              type: 'string',
+              description: 'Treatment provided (optional)',
+            },
+            nextSteps: {
+              type: 'string',
+              description: 'Follow-up instructions (optional)',
+            },
+            additionalNotes: {
+              type: 'string',
+              description: 'Additional notes (optional)',
+            },
+          },
+          required: ['ownerPhone', 'petName', 'date', 'chiefComplaint'],
+        },
+      },
     ],
   };
 });
@@ -173,6 +257,51 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           success: true,
           data: { message: validatedArgs.message },
         };
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      }
+
+      case 'get_consultation': {
+        const validatedArgs = GetConsultationSchema.parse(args) as GetConsultationInput;
+        const result = await repository.getConsultationById(validatedArgs.id);
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      }
+
+      case 'list_consultations': {
+        const validatedArgs = ListConsultationsSchema.parse(args) as ListConsultationsInput;
+        const result = await repository.listConsultationsMinimal(
+          validatedArgs.petId,
+          validatedArgs.userId
+        );
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      }
+
+      case 'create_consultation': {
+        const validatedArgs = CreateConsultationMcpSchema.parse(args) as CreateConsultationMcpInput;
+        const result = await repository.createConsultationByPhone(validatedArgs);
 
         return {
           content: [
