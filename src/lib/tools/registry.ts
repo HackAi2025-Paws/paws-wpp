@@ -3,6 +3,7 @@ import { RegisterUserTool } from './register-user';
 import { ListPetsTool } from './list-pets';
 import { RegisterPetTool } from './register-pet';
 import { AskUserTool } from './ask-user';
+import { GetUserInfoTool } from './get-user-info';
 import { WebSearchTool } from './web-search';
 import { MapSearchTool } from './map-search';
 
@@ -13,10 +14,11 @@ export class ToolRegistry {
 
   constructor() {
     // Initialize all tools
-    this.tools.set('register_user', new RegisterUserTool());
-    this.tools.set('list_pets', new ListPetsTool());
-    this.tools.set('register_pet', new RegisterPetTool());
     this.tools.set('ask_user', new AskUserTool());
+    this.tools.set('register_user', new RegisterUserTool());
+    this.tools.set('get_user_info', new GetUserInfoTool());
+    this.tools.set('register_pet', new RegisterPetTool());
+    this.tools.set('list_pets', new ListPetsTool());
 
     // Web search tool (conditional)
     this.webSearchTool = new WebSearchTool();
