@@ -6,6 +6,7 @@ import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
+import express from "express";
 import { PetRepository } from './repository';
 import {
   RegisterUserSchema,
@@ -17,6 +18,8 @@ import {
   RegisterPetInput,
   AskUserInput,
 } from './types';
+import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
+import { randomUUID } from 'crypto';
 
 const repository = new PetRepository();
 
@@ -202,9 +205,48 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 });
 
 async function runServer() {
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
-  console.error('Paws WhatsApp MCP Server running on stdio');
+  const mode = (process.env.MCP_TRANSPORT || 'stdio').toLowerCase();
+  if (mode === 'stdio') {
+    const transport = new StdioServerTransport();
+    await server.connect(transport);
+    console.error('Paws WhatsApp MCP Server running on stdio');
+    return;
+  }
+
+  if (mode === 'http') {
+    const app = express();
+    app.use(express.json());
+
+    // CORS (expose Mcp-Session-Id if consuming from a browser)
+    app.use((req, res, next) => {
+      res.header('Access-Control-Allow-Origin', process.env.CORS_ORIGIN || '*');
+      res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Mcp-Session-Id');
+      res.header('Access-Control-Expose-Headers', 'Mcp-Session-Id');
+      if (req.method === 'OPTIONS') return res.sendStatus(204);
+      next();
+    });
+
+    // Endpoint MCP (Streamable HTTP)
+    app.all('/mcp', async (req, res) => {
+      const transport = new StreamableHTTPServerTransport({
+        sessionIdGenerator: () => randomUUID(),
+        enableDnsRebindingProtection: true,
+        // If you need SSE legacy compatibility, many examples expose it in parallel;
+        // Streamable HTTP is the current recommended approach. :contentReference[oaicite:1]{index=1}
+      });
+
+      await server.connect(transport);
+      await transport.handleRequest(req, res);
+    });
+
+    const port = Number(process.env.MCP_PORT || 3000);
+    app.listen(port, () => {
+      console.error(`Streamable HTTP listening on http://0.0.0.0:${port}/mcp`);
+    });
+    return;
+  }
+
+  throw new Error(`Unknown MCP_TRANSPORT: ${mode}`);
 }
 
 runServer().catch((error) => {
