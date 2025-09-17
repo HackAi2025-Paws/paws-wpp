@@ -25,7 +25,6 @@ import {
   CreateConsultationMcpInput,
 } from './types';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
-import { randomUUID } from 'crypto';
 
 const repository = new PetRepository();
 
@@ -344,7 +343,6 @@ async function runServer() {
 
   if (mode === 'http') {
     const app = express();
-    app.use(express.json());
 
     // CORS (expose Mcp-Session-Id if consuming from a browser)
     app.use((req, res, next) => {
@@ -358,7 +356,7 @@ async function runServer() {
     // Endpoint MCP (Streamable HTTP)
     app.all('/mcp', async (req, res) => {
       const transport = new StreamableHTTPServerTransport({
-        sessionIdGenerator: () => randomUUID(),
+        sessionIdGenerator: undefined,
         enableDnsRebindingProtection: false,
         // If you need SSE legacy compatibility, many examples expose it in parallel;
         // Streamable HTTP is the current recommended approach. :contentReference[oaicite:1]{index=1}
