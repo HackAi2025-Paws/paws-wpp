@@ -158,7 +158,7 @@ async function setupRedis() {
 
   if (mode === 'external') {
     const url = process.env.REDIS_URL;
-    if (!url) throw new Error('Falta REDIS_URL en modo external');
+    if (!url) throw new Error('Missing REDIS_URL in external mode');
 
     console.log(`🔌 Usando Redis externo desde REDIS_URL`);
     const client = createClient({ url });
