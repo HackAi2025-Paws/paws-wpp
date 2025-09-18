@@ -18,7 +18,7 @@ export function withAuth(
 ) {
   return async function (req: NextRequest): Promise<NextResponse> {
     try {
-      const authHeader = req.headers.get('authorization');
+      const authHeader = req.headers.get('Authorization');
       if (!authHeader || !authHeader.startsWith('Bearer ')) {
         return NextResponse.json(
           { error: 'No se proporcionó token de autenticación' },
