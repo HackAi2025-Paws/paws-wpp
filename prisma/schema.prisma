@@ -42,6 +42,8 @@ model User {
   pendings      Pending[]
   AuthToken     AuthToken[]
   consultations Consultation[]
+  vaccines      Vaccine[]
+  treatment     Treatment[]
 }
 
 model AuthToken {
@@ -66,6 +68,8 @@ model Pet {
   owners        User[]         @relation("UserPets")
   consultations Consultation[]
   pendings      Pending[]
+  vaccines      Vaccine[]
+  treatment     Treatment[]
 }
 
 model Pending {
@@ -95,23 +99,89 @@ model Reminder {
   @@index([sent])
 }
 
-model Consultation {
-  id              Int      @id @default(autoincrement())
-  petId           Int
-  userId          Int
-  date            DateTime
-  chiefComplaint  String
-  findings        String?
-  diagnosis       String?
-  treatment       String?
-  nextSteps       String?
-  additionalNotes String?
-  createdAt       DateTime @default(now())
+enum ConsultationType {
+  GENERAL_CONSULTATION
+  VACCINATION
+  TREATMENT
+  CHECKUP
+  EMERGENCY
+  SURGERY
+  AESTHETIC
+  REVIEW
+}
 
-  pet  Pet  @relation(fields: [petId], references: [id])
-  user User @relation(fields: [userId], references: [id])
+model Consultation {
+  id               Int              @id @default(autoincrement())
+  petId            Int
+  userId           Int
+  consultationType ConsultationType
+  date             DateTime
+  chiefComplaint   String
+  findings         String?
+  diagnosis        String?
+  nextSteps        String?
+  additionalNotes  String?
+  createdAt        DateTime         @default(now())
+  vaccines         Vaccine[]
+  treatment        Treatment[]
+  pet              Pet              @relation(fields: [petId], references: [id])
+  user             User             @relation(fields: [userId], references: [id])
 
   @@index([petId])
   @@index([userId])
   @@index([date])
+}
+
+model VaccineCatalog {
+  id           Int       @id @default(autoincrement())
+  name         String
+  description  String?
+  periodicity  Int?
+  minAge       Int?
+  notes        String?
+  applicableTo Species[]
+  vaccines     Vaccine[]
+
+  @@index([name])
+}
+
+model Vaccine {
+  id              Int       @id @default(autoincrement())
+  catalogId       Int
+  applicationDate DateTime
+  expirationDate  DateTime?
+  batchNumber     String?
+  notes           String?
+  petId           Int
+  consultationId  Int?
+  authorId        Int
+
+  catalog      VaccineCatalog @relation(fields: [catalogId], references: [id])
+  author       User           @relation(fields: [authorId], references: [id])
+  pet          Pet            @relation(fields: [petId], references: [id])
+  consultation Consultation?  @relation(fields: [consultationId], references: [id])
+
+  @@index([catalogId])
+  @@index([authorId])
+  @@index([petId])
+  @@index([applicationDate])
+}
+
+model Treatment {
+  id             Int       @id @default(autoincrement())
+  name           String
+  startDate      DateTime
+  endDate        DateTime?
+  notes          String?
+  petId          Int
+  consultationId Int?
+  authorId       Int
+
+  author       User          @relation(fields: [authorId], references: [id])
+  pet          Pet           @relation(fields: [petId], references: [id])
+  consultation Consultation? @relation(fields: [consultationId], references: [id])
+
+  @@index([authorId])
+  @@index([petId])
+  @@index([startDate])
 }

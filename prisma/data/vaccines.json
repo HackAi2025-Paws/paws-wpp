@@ -1,0 +1,58 @@
+[
+  {
+    "name": "Quíntuple (CPV, CDV, CAV-1, CAV-2, CPI)",
+    "description": "Protege contra parvovirus, moquillo, hepatitis canina, adenovirus y parainfluenza.",
+    "periodicity": 365,
+    "minAge": 45,
+    "notes": "Primera dosis a los 45 días, luego refuerzos cada 21 días hasta completar 3 dosis.",
+    "applicableTo": ["DOG"]
+  },
+  {
+    "name": "Sextuple (incluye leptospirosis)",
+    "description": "Amplía la quíntuple con leptospira.",
+    "periodicity": 365,
+    "minAge": 45,
+    "notes": "Refuerzo anual obligatorio.",
+    "applicableTo": ["DOG"]
+  },
+  {
+    "name": "Antirrábica (perro)",
+    "description": "Vacuna obligatoria contra la rabia.",
+    "periodicity": 365,
+    "minAge": 90,
+    "notes": "Primera dosis a los 3 meses, luego anual (obligatoria por ley).",
+    "applicableTo": ["DOG"]
+  },
+  {
+    "name": "Tos de las perreras (Bordetella bronchiseptica)",
+    "description": "Recomendada en perros que conviven con otros (guarderías, criaderos, paseos).",
+    "periodicity": 365,
+    "minAge": 60,
+    "notes": "Según riesgo epidemiológico.",
+    "applicableTo": ["DOG"]
+  },
+  {
+    "name": "Triple felina (FPV, FHV-1, FCV)",
+    "description": "Protege contra panleucopenia, rinotraqueítis viral y calicivirus.",
+    "periodicity": 365,
+    "minAge": 60,
+    "notes": "Primera dosis a los 2 meses, refuerzo a los 21 días y luego anual.",
+    "applicableTo": ["CAT"]
+  },
+  {
+    "name": "Antirrábica (gato)",
+    "description": "Vacuna obligatoria contra la rabia.",
+    "periodicity": 365,
+    "minAge": 90,
+    "notes": "Primera dosis a los 3 meses, luego anual (obligatoria por ley).",
+    "applicableTo": ["CAT"]
+  },
+  {
+    "name": "Leucemia felina (FeLV)",
+    "description": "Vacuna opcional contra la leucemia viral felina.",
+    "periodicity": 365,
+    "minAge": 60,
+    "notes": "Recomendada para gatos que salen al exterior o conviven con positivos.",
+    "applicableTo": ["CAT"]
+  }
+]

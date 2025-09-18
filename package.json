@@ -18,11 +18,12 @@
     "redis:dev": "docker-compose --profile dev up -d",
     "redis:reset": "docker-compose down && docker volume rm paws-wpp_redis_data 2>/dev/null || true && docker-compose up -d redis",
     "test:session": "tsx src/test-session.ts",
-    "db:generate": "prisma generate",
+    "db:generate": "prisma generate --generator client",
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",
     "db:reset": "prisma migrate reset",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "db:seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.62.0",
