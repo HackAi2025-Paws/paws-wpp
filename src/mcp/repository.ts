@@ -161,12 +161,35 @@ export class PetRepository {
           petId: input.petId,
           userId: input.userId,
           date: new Date(input.date),
+          consultationType: input.consultationType,  // Campo obligatorio
           chiefComplaint: input.chiefComplaint,
-          findings: input.findings,
-          diagnosis: input.diagnosis,
-          treatment: input.treatment,
-          nextSteps: input.nextSteps,
-          additionalNotes: input.additionalNotes,
+          findings: input.findings || null,
+          diagnosis: input.diagnosis || null,
+          nextSteps: input.nextSteps || null,
+          additionalNotes: input.additionalNotes || null,
+          nextConsultation: input.nextConsultation ? new Date(input.nextConsultation) : null,
+          treatment: input.treatment ? {
+            create: input.treatment.map(t => ({
+              name: t.name,
+              startDate: new Date(t.startDate),
+              endDate: t.endDate ? new Date(t.endDate) : null,
+              notes: t.notes || null,
+              petId: input.petId,
+              authorId: input.userId
+            }))
+          } : undefined,
+          // Crear vacunas relacionadas si se proporcionan
+          vaccines: input.vaccines ? {
+            create: input.vaccines.map(v => ({
+              catalogId: v.catalogId,
+              applicationDate: new Date(v.applicationDate),
+              expirationDate: v.expirationDate ? new Date(v.expirationDate) : null,
+              batchNumber: v.batchNumber || null,
+              notes: v.notes || null,
+              petId: input.petId,
+              authorId: input.userId
+            }))
+          } : undefined,
         },
         include: {
           pet: {
@@ -175,6 +198,12 @@ export class PetRepository {
             },
           },
           user: true,
+          treatment: true,
+          vaccines: {
+            include: {
+              catalog: true
+            }
+          }
         },
       });
 
@@ -185,12 +214,13 @@ export class PetRepository {
           petId: consultation.petId,
           userId: consultation.userId,
           date: consultation.date.toISOString(),
+          consultationType: consultation.consultationType,
           chiefComplaint: consultation.chiefComplaint,
           findings: consultation.findings,
           diagnosis: consultation.diagnosis,
-          treatment: consultation.treatment,
           nextSteps: consultation.nextSteps,
           additionalNotes: consultation.additionalNotes,
+          nextConsultation: consultation.nextConsultation?.toISOString() || null,
           createdAt: consultation.createdAt.toISOString(),
           pet: {
             id: consultation.pet.id,
@@ -208,6 +238,31 @@ export class PetRepository {
             name: consultation.user.name,
             phone: consultation.user.phone,
           },
+          // Mapear tratamientos
+          treatment: consultation.treatment.map(t => ({
+            id: t.id,
+            name: t.name,
+            startDate: t.startDate.toISOString(),
+            endDate: t.endDate?.toISOString() || null,
+            notes: t.notes,
+            petId: t.petId,
+            authorId: t.authorId,
+          })),
+          // Mapear vacunas
+          vaccines: consultation.vaccines.map(v => ({
+            id: v.id,
+            catalogId: v.catalogId,
+            applicationDate: v.applicationDate.toISOString(),
+            expirationDate: v.expirationDate?.toISOString() || null,
+            batchNumber: v.batchNumber,
+            notes: v.notes,
+            petId: v.petId,
+            authorId: v.authorId,
+            catalog: v.catalog ? {
+              name: v.catalog.name,
+              description: v.catalog.description
+            } : undefined,
+          })),
         },
       };
     } catch (error) {
@@ -229,6 +284,12 @@ export class PetRepository {
             },
           },
           user: true,
+          treatment: true, // Incluir la relación treatment
+          vaccines: {      // También incluir vaccines para ser consistente
+            include: {
+              catalog: true,
+            },
+          },
         },
       });
 
@@ -245,14 +306,38 @@ export class PetRepository {
           id: consultation.id,
           petId: consultation.petId,
           userId: consultation.userId,
+          consultationType: consultation.consultationType,
           date: consultation.date.toISOString(),
           chiefComplaint: consultation.chiefComplaint,
           findings: consultation.findings,
           diagnosis: consultation.diagnosis,
-          treatment: consultation.treatment,
           nextSteps: consultation.nextSteps,
           additionalNotes: consultation.additionalNotes,
+          nextConsultation: consultation.nextConsultation?.toISOString() || null,
           createdAt: consultation.createdAt.toISOString(),
+          treatment: consultation.treatment.map(t => ({
+            id: t.id,
+            name: t.name,
+            startDate: t.startDate.toISOString(),
+            endDate: t.endDate?.toISOString() || null,
+            notes: t.notes,
+            petId: t.petId,
+            authorId: t.authorId,
+          })),
+          vaccines: consultation.vaccines.map(v => ({
+            id: v.id,
+            catalogId: v.catalogId,
+            applicationDate: v.applicationDate.toISOString(),
+            expirationDate: v.expirationDate?.toISOString() || null,
+            batchNumber: v.batchNumber,
+            notes: v.notes,
+            petId: v.petId,
+            authorId: v.authorId,
+            catalog: v.catalog ? {
+              name: v.catalog.name,
+              description: v.catalog.description
+            } : undefined,
+          })),
           pet: {
             id: consultation.pet.id,
             name: consultation.pet.name,
@@ -290,6 +375,12 @@ export class PetRepository {
             },
           },
           user: true,
+          treatment: true,
+          vaccines: {
+            include: {
+              catalog: true,
+            },
+          },
         },
         orderBy: { date: 'desc' },
       });
@@ -298,14 +389,38 @@ export class PetRepository {
         id: consultation.id,
         petId: consultation.petId,
         userId: consultation.userId,
+        consultationType: consultation.consultationType,
         date: consultation.date.toISOString(),
         chiefComplaint: consultation.chiefComplaint,
         findings: consultation.findings,
         diagnosis: consultation.diagnosis,
-        treatment: consultation.treatment,
         nextSteps: consultation.nextSteps,
         additionalNotes: consultation.additionalNotes,
+        nextConsultation: consultation.nextConsultation?.toISOString() || null,
         createdAt: consultation.createdAt.toISOString(),
+        treatment: consultation.treatment.map(t => ({
+          id: t.id,
+          name: t.name,
+          startDate: t.startDate.toISOString(),
+          endDate: t.endDate?.toISOString() || null,
+          notes: t.notes,
+          petId: t.petId,
+          authorId: t.authorId,
+        })),
+        vaccines: consultation.vaccines.map(v => ({
+          id: v.id,
+          catalogId: v.catalogId,
+          applicationDate: v.applicationDate.toISOString(),
+          expirationDate: v.expirationDate?.toISOString() || null,
+          batchNumber: v.batchNumber,
+          notes: v.notes,
+          petId: v.petId,
+          authorId: v.authorId,
+          catalog: v.catalog ? {
+            name: v.catalog.name,
+            description: v.catalog.description
+          } : undefined,
+        })),
         pet: {
           id: consultation.pet.id,
           name: consultation.pet.name,
@@ -347,6 +462,12 @@ export class PetRepository {
             },
           },
           user: true,
+          treatment: true,
+          vaccines: {
+            include: {
+              catalog: true,
+            },
+          },
         },
         orderBy: { date: 'desc' },
       });
@@ -355,14 +476,38 @@ export class PetRepository {
         id: consultation.id,
         petId: consultation.petId,
         userId: consultation.userId,
+        consultationType: consultation.consultationType,
         date: consultation.date.toISOString(),
         chiefComplaint: consultation.chiefComplaint,
         findings: consultation.findings,
         diagnosis: consultation.diagnosis,
-        treatment: consultation.treatment,
         nextSteps: consultation.nextSteps,
         additionalNotes: consultation.additionalNotes,
+        nextConsultation: consultation.nextConsultation?.toISOString() || null,
         createdAt: consultation.createdAt.toISOString(),
+        treatment: consultation.treatment.map(t => ({
+          id: t.id,
+          name: t.name,
+          startDate: t.startDate.toISOString(),
+          endDate: t.endDate?.toISOString() || null,
+          notes: t.notes,
+          petId: t.petId,
+          authorId: t.authorId,
+        })),
+        vaccines: consultation.vaccines.map(v => ({
+          id: v.id,
+          catalogId: v.catalogId,
+          applicationDate: v.applicationDate.toISOString(),
+          expirationDate: v.expirationDate?.toISOString() || null,
+          batchNumber: v.batchNumber,
+          notes: v.notes,
+          petId: v.petId,
+          authorId: v.authorId,
+          catalog: v.catalog ? {
+            name: v.catalog.name,
+            description: v.catalog.description
+          } : undefined,
+        })),
         pet: {
           id: consultation.pet.id,
           name: consultation.pet.name,
@@ -398,17 +543,67 @@ export class PetRepository {
     updates: Partial<Omit<CreateConsultationInput, 'petId' | 'userId'>>
   ): Promise<OperationResult<ConsultationResult>> {
     try {
+
+      const existingConsultation = await prisma.consultation.findUnique({
+        where: { id },
+        include: {
+          treatment: true,
+          vaccines: true,
+        },
+      });
+
+      if (!existingConsultation) {
+        return {
+          success: false,
+          error: 'Consultation not found',
+        };
+      }
+
+      const updateData: any = {
+        ...(updates.date && { date: new Date(updates.date) }),
+        ...(updates.chiefComplaint && { chiefComplaint: updates.chiefComplaint }),
+        ...(updates.findings !== undefined && { findings: updates.findings }),
+        ...(updates.diagnosis !== undefined && { diagnosis: updates.diagnosis }),
+        ...(updates.nextSteps !== undefined && { nextSteps: updates.nextSteps }),
+        ...(updates.additionalNotes !== undefined && { additionalNotes: updates.additionalNotes }),
+        ...(updates.consultationType && { consultationType: updates.consultationType }),
+        ...(updates.nextConsultation !== undefined && {
+          nextConsultation: updates.nextConsultation ? new Date(updates.nextConsultation) : null
+        }),
+      };
+
+      if (updates.treatment) {
+        updateData.treatment = {
+          deleteMany: {},
+          create: updates.treatment.map(t => ({
+            name: t.name,
+            startDate: new Date(t.startDate),
+            endDate: t.endDate ? new Date(t.endDate) : null,
+            notes: t.notes || null,
+            petId: existingConsultation.petId,
+            authorId: existingConsultation.userId,
+          })),
+        };
+      }
+
+      if (updates.vaccines) {
+        updateData.vaccines = {
+          deleteMany: {},
+          create: updates.vaccines.map(v => ({
+            catalogId: v.catalogId,
+            applicationDate: new Date(v.applicationDate),
+            expirationDate: v.expirationDate ? new Date(v.expirationDate) : null,
+            batchNumber: v.batchNumber || null,
+            notes: v.notes || null,
+            petId: existingConsultation.petId,
+            authorId: existingConsultation.userId,
+          })),
+        };
+      }
+
       const consultation = await prisma.consultation.update({
         where: { id },
-        data: {
-          ...(updates.date && { date: new Date(updates.date) }),
-          ...(updates.chiefComplaint && { chiefComplaint: updates.chiefComplaint }),
-          ...(updates.findings !== undefined && { findings: updates.findings }),
-          ...(updates.diagnosis !== undefined && { diagnosis: updates.diagnosis }),
-          ...(updates.treatment !== undefined && { treatment: updates.treatment }),
-          ...(updates.nextSteps !== undefined && { nextSteps: updates.nextSteps }),
-          ...(updates.additionalNotes !== undefined && { additionalNotes: updates.additionalNotes }),
-        },
+        data: updateData,
         include: {
           pet: {
             include: {
@@ -416,6 +611,12 @@ export class PetRepository {
             },
           },
           user: true,
+          treatment: true,
+          vaccines: {
+            include: {
+              catalog: true,
+            },
+          },
         },
       });
 
@@ -425,14 +626,38 @@ export class PetRepository {
           id: consultation.id,
           petId: consultation.petId,
           userId: consultation.userId,
+          consultationType: consultation.consultationType,
           date: consultation.date.toISOString(),
           chiefComplaint: consultation.chiefComplaint,
           findings: consultation.findings,
           diagnosis: consultation.diagnosis,
-          treatment: consultation.treatment,
           nextSteps: consultation.nextSteps,
           additionalNotes: consultation.additionalNotes,
+          nextConsultation: consultation.nextConsultation?.toISOString() || null,
           createdAt: consultation.createdAt.toISOString(),
+          treatment: consultation.treatment.map(t => ({
+            id: t.id,
+            name: t.name,
+            startDate: t.startDate.toISOString(),
+            endDate: t.endDate?.toISOString() || null,
+            notes: t.notes,
+            petId: t.petId,
+            authorId: t.authorId,
+          })),
+          vaccines: consultation.vaccines.map(v => ({
+            id: v.id,
+            catalogId: v.catalogId,
+            applicationDate: v.applicationDate.toISOString(),
+            expirationDate: v.expirationDate?.toISOString() || null,
+            batchNumber: v.batchNumber,
+            notes: v.notes,
+            petId: v.petId,
+            authorId: v.authorId,
+            catalog: v.catalog ? {
+              name: v.catalog.name,
+              description: v.catalog.description
+            } : undefined,
+          })),
           pet: {
             id: consultation.pet.id,
             name: consultation.pet.name,
@@ -569,17 +794,31 @@ export class PetRepository {
 
       const pet = matchingPets[0];
 
+      let treatmentData = undefined;
+      if (input.treatment) {
+        treatmentData = {
+          create: [{
+            name: input.treatment,
+            startDate: new Date(input.date),
+            notes: null,
+            petId: pet.id,
+            authorId: user.id
+          }]
+        };
+      }
+
       const consultation = await prisma.consultation.create({
         data: {
           petId: pet.id,
           userId: user.id,
+          consultationType: 'GENERAL_CONSULTATION',
           date: new Date(input.date),
           chiefComplaint: input.chiefComplaint,
-          findings: input.findings,
-          diagnosis: input.diagnosis,
-          treatment: input.treatment,
-          nextSteps: input.nextSteps,
-          additionalNotes: input.additionalNotes,
+          findings: input.findings || null,
+          diagnosis: input.diagnosis || null,
+          nextSteps: input.nextSteps || null,
+          additionalNotes: input.additionalNotes || null,
+          treatment: treatmentData,
         },
         include: {
           pet: {
@@ -588,6 +827,12 @@ export class PetRepository {
             },
           },
           user: true,
+          treatment: true,
+          vaccines: {
+            include: {
+              catalog: true,
+            },
+          },
         },
       });
 
@@ -597,14 +842,38 @@ export class PetRepository {
           id: consultation.id,
           petId: consultation.petId,
           userId: consultation.userId,
+          consultationType: consultation.consultationType,
           date: consultation.date.toISOString(),
           chiefComplaint: consultation.chiefComplaint,
           findings: consultation.findings,
           diagnosis: consultation.diagnosis,
-          treatment: consultation.treatment,
           nextSteps: consultation.nextSteps,
           additionalNotes: consultation.additionalNotes,
+          nextConsultation: consultation.nextConsultation?.toISOString() || null,
           createdAt: consultation.createdAt.toISOString(),
+          treatment: consultation.treatment.map(t => ({
+            id: t.id,
+            name: t.name,
+            startDate: t.startDate.toISOString(),
+            endDate: t.endDate?.toISOString() || null,
+            notes: t.notes,
+            petId: t.petId,
+            authorId: t.authorId,
+          })),
+          vaccines: consultation.vaccines.map(v => ({
+            id: v.id,
+            catalogId: v.catalogId,
+            applicationDate: v.applicationDate.toISOString(),
+            expirationDate: v.expirationDate?.toISOString() || null,
+            batchNumber: v.batchNumber,
+            notes: v.notes,
+            petId: v.petId,
+            authorId: v.authorId,
+            catalog: v.catalog ? {
+              name: v.catalog.name,
+              description: v.catalog.description
+            } : undefined,
+          })),
           pet: {
             id: consultation.pet.id,
             name: consultation.pet.name,

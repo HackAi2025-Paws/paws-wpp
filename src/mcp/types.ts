@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import { Species } from '@prisma/client';
+import {$Enums, Species} from '@prisma/client';
+import ConsultationType = $Enums.ConsultationType;
 
 export const RegisterUserSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -24,13 +25,31 @@ export const AskUserSchema = z.object({
 export const CreateConsultationSchema = z.object({
   petId: z.number().int().positive('Pet ID is required'),
   userId: z.number().int().positive('User ID is required'),
+  consultationType: z.nativeEnum(ConsultationType),
   date: z.string().datetime('Invalid date format'),
   chiefComplaint: z.string().min(1, 'Chief complaint is required'),
   findings: z.string().optional(),
   diagnosis: z.string().optional(),
-  treatment: z.string().optional(),
   nextSteps: z.string().optional(),
   additionalNotes: z.string().optional(),
+  nextConsultation: z.string().datetime('Invalid date format').optional(),
+  vaccines: z.array(
+    z.object({
+      catalogId: z.number().int().positive('Vaccine catalog ID is required'),
+      applicationDate: z.string().datetime('Invalid application date format'),
+      expirationDate: z.string().datetime('Invalid expiration date format').optional(),
+      batchNumber: z.string().optional(),
+      notes: z.string().optional(),
+    })
+  ).optional(),
+  treatment: z.array(
+    z.object({
+      name: z.string().min(1, 'Treatment name is required'),
+      startDate: z.string().datetime('Invalid start date format'),
+      endDate: z.string().datetime('Invalid end date format').optional(),
+      notes: z.string().optional(),
+    })
+  ).optional(),
 });
 
 export const GetConsultationSchema = z.object({
@@ -85,15 +104,43 @@ export interface ConsultationResult {
   petId: number;
   userId: number;
   date: string;
+  consultationType: ConsultationType;
   chiefComplaint: string;
   findings: string | null;
   diagnosis: string | null;
-  treatment: string | null;
   nextSteps: string | null;
   additionalNotes: string | null;
+  nextConsultation: string | null;
   createdAt: string;
   pet?: PetResult;
   user?: UserResult;
+  vaccines?: VaccineResult[];
+  treatment?: TreatmentResult[];
+}
+
+export interface VaccineResult {
+  id: number;
+  catalogId: number;
+  applicationDate: string;
+  expirationDate: string | null;
+  batchNumber: string | null;
+  notes: string | null;
+  petId: number;
+  authorId: number;
+  catalog?: {
+    name: string;
+    description: string | null;
+  };
+}
+
+export interface TreatmentResult {
+  id: number;
+  name: string;
+  startDate: string;
+  endDate: string | null;
+  notes: string | null;
+  petId: number;
+  authorId: number;
 }
 
 export interface ConsultationListResult {

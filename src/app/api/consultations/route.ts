@@ -2,11 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { CreateConsultationSchema } from '@/mcp/types';
 import { withAuth, JWTPayload } from '@/middleware/auth-middleware';
+import { mapConsultationToDTO } from '@/mcp/dto';
 
 export const POST = withAuth(async (req: NextRequest, token: JWTPayload) => {
   try {
     const body = await req.json();
-
+    body.userId = parseInt(token.sub, 10)
     const validation = CreateConsultationSchema.safeParse(body);
 
     if (!validation.success) {
@@ -23,13 +24,35 @@ export const POST = withAuth(async (req: NextRequest, token: JWTPayload) => {
       data: {
         petId: validation.data.petId,
         userId: parseInt(token.sub, 10),
+        consultationType: validation.data.consultationType,
         date: new Date(validation.data.date),
         chiefComplaint: validation.data.chiefComplaint,
-        findings: validation.data.findings,
-        diagnosis: validation.data.diagnosis,
-        treatment: validation.data.treatment,
-        nextSteps: validation.data.nextSteps,
-        additionalNotes: validation.data.additionalNotes,
+        findings: validation.data.findings || null,
+        diagnosis: validation.data.diagnosis || null,
+        nextSteps: validation.data.nextSteps || null,
+        additionalNotes: validation.data.additionalNotes || null,
+        nextConsultation: validation.data.nextConsultation ? new Date(validation.data.nextConsultation) : null,
+        treatment: validation.data.treatment ? {
+          create: validation.data.treatment.map(t => ({
+            name: t.name,
+            startDate: new Date(t.startDate),
+            endDate: t.endDate ? new Date(t.endDate) : null,
+            notes: t.notes || null,
+            petId: validation.data.petId,
+            authorId: parseInt(token.sub, 10)
+          }))
+        } : undefined,
+        vaccines: validation.data.vaccines ? {
+          create: validation.data.vaccines.map(v => ({
+            catalogId: v.catalogId,
+            applicationDate: new Date(v.applicationDate),
+            expirationDate: v.expirationDate ? new Date(v.expirationDate) : null,
+            batchNumber: v.batchNumber || null,
+            notes: v.notes || null,
+            petId: validation.data.petId,
+            authorId: parseInt(token.sub, 10)
+          }))
+        } : undefined,
       },
       include: {
         pet: {
@@ -38,38 +61,16 @@ export const POST = withAuth(async (req: NextRequest, token: JWTPayload) => {
           },
         },
         user: true,
+        treatment: true,
+        vaccines: {
+          include: {
+            catalog: true
+          }
+        }
       },
     });
 
-    return NextResponse.json({
-      id: consultation.id,
-      petId: consultation.petId,
-      userId: consultation.userId,
-      date: consultation.date.toISOString(),
-      chiefComplaint: consultation.chiefComplaint,
-      findings: consultation.findings,
-      diagnosis: consultation.diagnosis,
-      treatment: consultation.treatment,
-      nextSteps: consultation.nextSteps,
-      additionalNotes: consultation.additionalNotes,
-      createdAt: consultation.createdAt.toISOString(),
-      pet: {
-        id: consultation.pet.id,
-        name: consultation.pet.name,
-        dateOfBirth: consultation.pet.dateOfBirth.toISOString(),
-        species: consultation.pet.species,
-        owners: consultation.pet.owners.map(owner => ({
-          id: owner.id,
-          name: owner.name,
-          phone: owner.phone,
-        })),
-      },
-      user: {
-        id: consultation.user.id,
-        name: consultation.user.name,
-        phone: consultation.user.phone,
-      },
-    }, { status: 201 });
+    return NextResponse.json(mapConsultationToDTO(consultation), { status: 201 });
   } catch (error) {
     console.error('Error creating consultation:', error);
     return NextResponse.json(
@@ -104,6 +105,12 @@ export const GET = withAuth(async (req: NextRequest, token: JWTPayload) => {
             },
           },
           user: true,
+          treatment: true,
+          vaccines: {
+            include: {
+              catalog: true,
+            },
+          },
         },
       });
 
@@ -114,35 +121,7 @@ export const GET = withAuth(async (req: NextRequest, token: JWTPayload) => {
         );
       }
 
-      return NextResponse.json({
-        id: consultation.id,
-        petId: consultation.petId,
-        userId: consultation.userId,
-        date: consultation.date.toISOString(),
-        chiefComplaint: consultation.chiefComplaint,
-        findings: consultation.findings,
-        diagnosis: consultation.diagnosis,
-        treatment: consultation.treatment,
-        nextSteps: consultation.nextSteps,
-        additionalNotes: consultation.additionalNotes,
-        createdAt: consultation.createdAt.toISOString(),
-        pet: {
-          id: consultation.pet.id,
-          name: consultation.pet.name,
-          dateOfBirth: consultation.pet.dateOfBirth.toISOString(),
-          species: consultation.pet.species,
-          owners: consultation.pet.owners.map(owner => ({
-            id: owner.id,
-            name: owner.name,
-            phone: owner.phone,
-          })),
-        },
-        user: {
-          id: consultation.user.id,
-          name: consultation.user.name,
-          phone: consultation.user.phone,
-        },
-      });
+      return NextResponse.json(mapConsultationToDTO(consultation));
     }
 
     if (petId) {
@@ -163,39 +142,19 @@ export const GET = withAuth(async (req: NextRequest, token: JWTPayload) => {
             },
           },
           user: true,
+          treatment: true,
+          vaccines: {
+            include: {
+              catalog: true,
+            },
+          },
         },
         orderBy: { date: 'desc' },
       });
 
-      const consultationResults = consultations.map(consultation => ({
-        id: consultation.id,
-        petId: consultation.petId,
-        userId: consultation.userId,
-        date: consultation.date.toISOString(),
-        chiefComplaint: consultation.chiefComplaint,
-        findings: consultation.findings,
-        diagnosis: consultation.diagnosis,
-        treatment: consultation.treatment,
-        nextSteps: consultation.nextSteps,
-        additionalNotes: consultation.additionalNotes,
-        createdAt: consultation.createdAt.toISOString(),
-        pet: {
-          id: consultation.pet.id,
-          name: consultation.pet.name,
-          dateOfBirth: consultation.pet.dateOfBirth.toISOString(),
-          species: consultation.pet.species,
-          owners: consultation.pet.owners.map(owner => ({
-            id: owner.id,
-            name: owner.name,
-            phone: owner.phone,
-          })),
-        },
-        user: {
-          id: consultation.user.id,
-          name: consultation.user.name,
-          phone: consultation.user.phone,
-        },
-      }));
+      const consultationResults = consultations.map(consultation =>
+        mapConsultationToDTO(consultation)
+      );
 
       return NextResponse.json(consultationResults);
     }
@@ -217,39 +176,19 @@ export const GET = withAuth(async (req: NextRequest, token: JWTPayload) => {
             },
           },
           user: true,
+          treatment: true,
+          vaccines: {
+            include: {
+              catalog: true,
+            },
+          },
         },
         orderBy: { date: 'desc' },
       });
 
-      const consultationResults = consultations.map(consultation => ({
-        id: consultation.id,
-        petId: consultation.petId,
-        userId: consultation.userId,
-        date: consultation.date.toISOString(),
-        chiefComplaint: consultation.chiefComplaint,
-        findings: consultation.findings,
-        diagnosis: consultation.diagnosis,
-        treatment: consultation.treatment,
-        nextSteps: consultation.nextSteps,
-        additionalNotes: consultation.additionalNotes,
-        createdAt: consultation.createdAt.toISOString(),
-        pet: {
-          id: consultation.pet.id,
-          name: consultation.pet.name,
-          dateOfBirth: consultation.pet.dateOfBirth.toISOString(),
-          species: consultation.pet.species,
-          owners: consultation.pet.owners.map(owner => ({
-            id: owner.id,
-            name: owner.name,
-            phone: owner.phone,
-          })),
-        },
-        user: {
-          id: consultation.user.id,
-          name: consultation.user.name,
-          phone: consultation.user.phone,
-        },
-      }));
+      const consultationResults = consultations.map(consultation =>
+        mapConsultationToDTO(consultation)
+      );
 
       return NextResponse.json(consultationResults);
     }
