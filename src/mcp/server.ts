@@ -237,6 +237,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           validatedArgs.name,
           new Date(validatedArgs.dateOfBirth),
           validatedArgs.species,
+          validatedArgs.sex,
+          validatedArgs.weight,
+          validatedArgs.breed,
           validatedArgs.ownerPhone
         );
 

@@ -1,6 +1,6 @@
 import { prisma } from './prisma'
 import { InputNormalizer } from './input-normalizer'
-import { Species } from '@prisma/client'
+import { Species, Sex } from '@prisma/client'
 
 export interface PetRegistrationResult {
   success: boolean
@@ -9,6 +9,9 @@ export interface PetRegistrationResult {
     name: string
     dateOfBirth: string
     species: Species
+    sex?: Sex | null
+    weight?: number | null
+    breed?: string | null
     owners: Array<{
       id: number
       name: string
@@ -26,6 +29,9 @@ export interface PetListResult {
     name: string
     dateOfBirth: string
     species: Species
+    sex?: Sex | null
+    weight?: number | null
+    breed?: string | null
     owners: Array<{
       id: number
       name: string
@@ -40,6 +46,9 @@ export class PetService {
     name: string,
     dateOfBirth: string,
     species: string,
+    sex: string,
+    weight: number,
+    breed: string,
     ownerPhone: string
   ): Promise<PetRegistrationResult> {
     try {
@@ -47,6 +56,31 @@ export class PetService {
       const normalizedName = InputNormalizer.normalizeName(name)
       const normalizedSpecies = InputNormalizer.normalizeSpecies(species)
       const normalizedDate = InputNormalizer.normalizeDate(dateOfBirth)
+
+      // Validate sex
+      const validSex = sex.toUpperCase()
+      if (validSex !== 'MALE' && validSex !== 'FEMALE') {
+        return {
+          success: false,
+          error: 'Sexo no válido. Debe ser "MALE" o "FEMALE".'
+        }
+      }
+
+      // Validate weight
+      if (!weight || weight <= 0) {
+        return {
+          success: false,
+          error: 'Peso no válido. Debe ser un número positivo.'
+        }
+      }
+
+      // Validate breed
+      if (!breed || breed.trim().length === 0) {
+        return {
+          success: false,
+          error: 'Raza es requerida.'
+        }
+      }
 
       if (!normalizedName || normalizedName.trim().length === 0) {
         return {
@@ -106,6 +140,9 @@ export class PetService {
           name: normalizedName,
           dateOfBirth: new Date(normalizedDate),
           species: normalizedSpecies,
+          sex: validSex as Sex,
+          weight: weight,
+          breed: breed.trim(),
           owners: {
             connect: { id: user.id }
           }
@@ -122,6 +159,9 @@ export class PetService {
           name: pet.name,
           dateOfBirth: pet.dateOfBirth.toISOString(),
           species: pet.species,
+          sex: pet.sex,
+          weight: pet.weight,
+          breed: pet.breed,
           owners: pet.owners.map(owner => ({
             id: owner.id,
             name: owner.name,
@@ -186,6 +226,9 @@ export class PetService {
         name: pet.name,
         dateOfBirth: pet.dateOfBirth.toISOString(),
         species: pet.species,
+        sex: pet.sex,
+        weight: pet.weight,
+        breed: pet.breed,
         owners: pet.owners.map(owner => ({
           id: owner.id,
           name: owner.name,
@@ -229,6 +272,9 @@ export class PetService {
           name: pet.name,
           dateOfBirth: pet.dateOfBirth.toISOString(),
           species: pet.species,
+          sex: pet.sex,
+          weight: pet.weight,
+          breed: pet.breed,
           owners: pet.owners.map(owner => ({
             id: owner.id,
             name: owner.name,

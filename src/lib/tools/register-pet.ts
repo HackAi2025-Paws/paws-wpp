@@ -5,7 +5,10 @@ import { PetService } from '../pet-service';
 const RegisterPetArgs = z.object({
   name: z.string().min(1, 'Pet name is required'),
   dateOfBirth: z.string().min(1, 'Date of birth is required'),
-  species: z.enum(['CAT', 'DOG'], { errorMap: () => ({ message: 'Species must be CAT or DOG' }) })
+  species: z.enum(['CAT', 'DOG'], { errorMap: () => ({ message: 'Species must be CAT or DOG' }) }),
+  sex: z.enum(['MALE', 'FEMALE'], { errorMap: () => ({ message: 'Sex must be MALE or FEMALE' }) }),
+  weight: z.number().positive('Weight must be a positive number'),
+  breed: z.string().min(1, 'Breed is required')
 });
 
 type RegisterPetInputType = z.infer<typeof RegisterPetArgs>;
@@ -16,15 +19,18 @@ export class RegisterPetTool implements ToolHandler<RegisterPetInputType> {
 
   definition = {
     name: 'register_pet',
-    description: 'Register a new pet. Only call if you have clear name and species.',
+    description: 'Register a new pet. Only call if you have clear name, species, sex, weight, and breed.',
     input_schema: {
       type: 'object' as const,
       properties: {
         name: { type: 'string' as const, description: 'Pet name' },
         dateOfBirth: { type: 'string' as const, description: 'Pet birth date in any clear format' },
-        species: { type: 'string' as const, enum: ['CAT', 'DOG'], description: 'Must be exactly CAT or DOG' }
+        species: { type: 'string' as const, enum: ['CAT', 'DOG'], description: 'Must be exactly CAT or DOG' },
+        sex: { type: 'string' as const, enum: ['MALE', 'FEMALE'], description: 'Must be exactly MALE or FEMALE' },
+        weight: { type: 'number' as const, description: 'Pet weight as a positive number' },
+        breed: { type: 'string' as const, description: 'Pet breed' }
       },
-      required: ['name', 'dateOfBirth', 'species'],
+      required: ['name', 'dateOfBirth', 'species', 'sex', 'weight', 'breed'],
       additionalProperties: false
     }
   };
@@ -41,6 +47,9 @@ export class RegisterPetTool implements ToolHandler<RegisterPetInputType> {
         input.name,
         input.dateOfBirth,
         input.species,
+        input.sex,
+        input.weight,
+        input.breed,
         context.userPhone
       );
 

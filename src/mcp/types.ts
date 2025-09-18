@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import {$Enums, Species} from '@prisma/client';
+import {$Enums, Species, Sex} from '@prisma/client';
 import ConsultationType = $Enums.ConsultationType;
 
 export const RegisterUserSchema = z.object({
@@ -15,6 +15,9 @@ export const RegisterPetSchema = z.object({
   name: z.string().min(1, 'Pet name is required'),
   dateOfBirth: z.string().datetime('Invalid date format'),
   species: z.nativeEnum(Species),
+  sex: z.nativeEnum(Sex),
+  weight: z.number().positive('Weight must be a positive number'),
+  breed: z.string().min(1, 'Breed is required'),
   ownerPhone: z.string().min(1, 'Owner phone is required'),
 });
 
@@ -96,6 +99,9 @@ export interface PetResult {
   name: string;
   dateOfBirth: string;
   species: Species;
+  sex?: Sex | null;
+  weight?: number | null;
+  breed?: string | null;
   owners: UserResult[];
 }
 

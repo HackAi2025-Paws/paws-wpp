@@ -12,6 +12,11 @@ enum Species {
   DOG
 }
 
+enum Sex {
+  MALE
+  FEMALE
+}
+
 enum PendingStatus {
   PENDING
   COMPLETED
@@ -65,6 +70,9 @@ model Pet {
   name          String
   dateOfBirth   DateTime
   species       Species
+  sex           Sex?
+  weight        Float?
+  breed         String?
   owners        User[]         @relation("UserPets")
   consultations Consultation[]
   pendings      Pending[]

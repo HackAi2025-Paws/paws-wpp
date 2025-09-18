@@ -66,6 +66,9 @@ export class AgentService {
             args.name,
             new Date(args.dateOfBirth),
             args.species,
+            args.sex,
+            args.weight,
+            args.breed,
             args.ownerPhone
           );
         }

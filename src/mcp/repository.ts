@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import { Species } from '@prisma/client';
+import { Species, Sex } from '@prisma/client';
 import { UserResult, PetResult, OperationResult, ConsultationResult, ConsultationListResult, CreateConsultationInput, CreateConsultationMcpInput } from './types';
 
 export class PetRepository {
@@ -81,6 +81,9 @@ export class PetRepository {
         name: pet.name,
         dateOfBirth: pet.dateOfBirth.toISOString(),
         species: pet.species,
+        sex: pet.sex,
+        weight: pet.weight,
+        breed: pet.breed,
         owners: pet.owners.map(owner => ({
           id: owner.id,
           name: owner.name,
@@ -104,6 +107,9 @@ export class PetRepository {
     name: string,
     dateOfBirth: Date,
     species: Species,
+    sex: Sex,
+    weight: number,
+    breed: string,
     ownerPhone: string
   ): Promise<OperationResult<PetResult>> {
     try {
@@ -123,6 +129,9 @@ export class PetRepository {
           name,
           dateOfBirth,
           species,
+          sex,
+          weight,
+          breed,
           owners: {
             connect: { id: user.id },
           },
@@ -139,6 +148,9 @@ export class PetRepository {
           name: pet.name,
           dateOfBirth: pet.dateOfBirth.toISOString(),
           species: pet.species,
+          sex: pet.sex,
+          weight: pet.weight,
+          breed: pet.breed,
           owners: pet.owners.map(owner => ({
             id: owner.id,
             name: owner.name,
@@ -227,6 +239,9 @@ export class PetRepository {
             name: consultation.pet.name,
             dateOfBirth: consultation.pet.dateOfBirth.toISOString(),
             species: consultation.pet.species,
+            sex: consultation.pet.sex,
+            weight: consultation.pet.weight,
+            breed: consultation.pet.breed,
             owners: consultation.pet.owners.map(owner => ({
               id: owner.id,
               name: owner.name,
@@ -343,6 +358,9 @@ export class PetRepository {
             name: consultation.pet.name,
             dateOfBirth: consultation.pet.dateOfBirth.toISOString(),
             species: consultation.pet.species,
+            sex: consultation.pet.sex,
+            weight: consultation.pet.weight,
+            breed: consultation.pet.breed,
             owners: consultation.pet.owners.map(owner => ({
               id: owner.id,
               name: owner.name,
@@ -663,6 +681,9 @@ export class PetRepository {
             name: consultation.pet.name,
             dateOfBirth: consultation.pet.dateOfBirth.toISOString(),
             species: consultation.pet.species,
+            sex: consultation.pet.sex,
+            weight: consultation.pet.weight,
+            breed: consultation.pet.breed,
             owners: consultation.pet.owners.map(owner => ({
               id: owner.id,
               name: owner.name,
@@ -879,6 +900,9 @@ export class PetRepository {
             name: consultation.pet.name,
             dateOfBirth: consultation.pet.dateOfBirth.toISOString(),
             species: consultation.pet.species,
+            sex: consultation.pet.sex,
+            weight: consultation.pet.weight,
+            breed: consultation.pet.breed,
             owners: consultation.pet.owners.map(owner => ({
               id: owner.id,
               name: owner.name,
