@@ -8,9 +8,9 @@ const JWT_SECRET = (() => {
   throw new Error('JWT_SECRET environment variable must be set in production');
 })();
 
-// Rutas que NO requieren autenticación (públicas)
 const PUBLIC_ROUTES = [
   '/api/auth/login',
+  '/api/auth/register',
   '/api/auth/otp',
   '/api/health',
   '/api/webhook/whatsapp',
