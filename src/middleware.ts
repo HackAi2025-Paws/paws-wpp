@@ -60,6 +60,7 @@ export function middleware(request: NextRequest) {
     const response = NextResponse.next();
     return createCorsResponse(response, request);
   } catch (error) {
+    console.error('[middleware]', { error });
     if (error instanceof jwt.TokenExpiredError) {
       const response = NextResponse.json(
         { error: 'Token expirado' },
@@ -76,4 +77,5 @@ export function middleware(request: NextRequest) {
 }
 export const config = {
   matcher: ['/api/:path*'],
+  runtime: 'nodejs',
 };
