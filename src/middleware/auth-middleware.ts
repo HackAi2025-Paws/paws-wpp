@@ -11,8 +11,6 @@ export interface JWTPayload {
   sub: string;
   name?: string;
   phone?: string;
-  iat: number;
-  exp: number;
 }
 
 export function withAuth(

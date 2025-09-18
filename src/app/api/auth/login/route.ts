@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { authService } from '@/lib/auth/auth-service';
 import jwt from 'jsonwebtoken';
 import { configDotenv } from 'dotenv';
+import {JWTPayload} from "@/middleware/auth-middleware";
 
 configDotenv();
 
@@ -26,7 +27,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: result.error }, { status: result.statusCode });
     }
 
-    const jwtPayload = {
+    const jwtPayload: JWTPayload = {
       sub: result.user.id,
       name: result.user.name,
       phone: result.user.phone
