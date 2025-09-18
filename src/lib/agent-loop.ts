@@ -22,7 +22,14 @@ GOALS
 - Interpret Spanish messages and call appropriate tools.
 - If the user asks about their name, their pet names, or general information about themselves, use get_user_info first.
 - If the user gives unclear dates (e.g., "2 años"), ask for a specific birth date using ask_user.
+- When users provide information for multiple items (like registering 2+ pets), use multiple tool calls in a single response for efficiency.
 - Keep all replies concise, WhatsApp-friendly, and actionable.
+
+MULTI-TOOL USAGE
+- For multiple pet registrations: Use multiple register_pet calls if you have complete info for each pet.
+- For related tasks: Combine compatible tools (e.g., get_user_info + list_pets + register_pet).
+- Independent operations can run in parallel for faster responses.
+- Always ensure user is registered before registering pets.
 
 STYLE & FORMATTING (WhatsApp)
 - Use brief lines and bullets; 1–4 lines max per reply, unless the user requested otherwise (max 10 lines still)
@@ -159,32 +166,46 @@ export class AgentLoop {
 
         console.log(`[${requestId}] Executing ${toolUseBlocks.length} tools`);
 
-        const toolResults: Anthropic.ToolResultBlockParam[] = [];
+        // Validate all tool use IDs first
         for (const toolBlock of toolUseBlocks) {
-          // Validate that tool_use_id matches the one from assistant response
           if (!this.validateToolUseId(toolBlock.id, toolUseBlocks, requestId)) {
             throw new Error(`Invalid tool_use_id: ${toolBlock.id}`);
           }
+        }
 
-          const toolResult = await this.executeTool(toolBlock, phone, requestId, messageId);
+        // Determine execution strategy: parallel for independent tools, sequential for dependent ones
+        const canRunInParallel = this.canToolsRunInParallel(toolUseBlocks);
+        console.log(`[${requestId}] Tool execution strategy: ${canRunInParallel ? 'parallel' : 'sequential'}`);
 
-          // Ensure tool result content is valid JSON string
-          let toolContent: string;
-          try {
-            toolContent = JSON.stringify(toolResult);
-            if (toolContent === '{}' || toolContent === 'null' || toolContent === 'undefined') {
-              toolContent = JSON.stringify({ ok: false, error: 'Empty tool result' });
-            }
-          } catch (error) {
-            console.error(`[${requestId}] Failed to serialize tool result:`, error);
-            toolContent = JSON.stringify({ ok: false, error: 'Failed to serialize tool result' });
-          }
+        let toolResults: Anthropic.ToolResultBlockParam[];
 
-          toolResults.push({
-            type: 'tool_result',
-            tool_use_id: toolBlock.id,
-            content: toolContent
+        if (canRunInParallel) {
+          // Execute tools in parallel
+          const toolPromises = toolUseBlocks.map(async (toolBlock) => {
+            const toolResult = await this.executeTool(toolBlock, phone, requestId, messageId);
+            const toolContent = this.serializeToolResult(toolResult, requestId);
+
+            return {
+              type: 'tool_result' as const,
+              tool_use_id: toolBlock.id,
+              content: toolContent
+            };
           });
+
+          toolResults = await Promise.all(toolPromises);
+        } else {
+          // Execute tools sequentially (existing logic)
+          toolResults = [];
+          for (const toolBlock of toolUseBlocks) {
+            const toolResult = await this.executeTool(toolBlock, phone, requestId, messageId);
+            const toolContent = this.serializeToolResult(toolResult, requestId);
+
+            toolResults.push({
+              type: 'tool_result',
+              tool_use_id: toolBlock.id,
+              content: toolContent
+            });
+          }
         }
 
         // Validate tool results before adding to session
@@ -261,6 +282,50 @@ export class AgentLoop {
       console.error(`[${requestId}] Invalid tool_use_id: ${toolUseId} not found in assistant response`);
     }
     return found;
+  }
+
+  private canToolsRunInParallel(toolUseBlocks: Anthropic.ToolUseBlock[]): boolean {
+    // Tools that should run sequentially (dependencies)
+    const sequentialTools = ['register_user', 'ask_user'];
+
+    // Tools that can safely run in parallel (independent operations)
+    const parallelSafeTools = [
+      'register_pet', 'list_pets', 'get_user_info',
+      'list_consultations', 'get_consultation', 'web_search', 'map_search'
+    ];
+
+    const toolNames = toolUseBlocks.map(block => block.name);
+
+    // If any tool requires sequential execution, run all sequentially
+    if (toolNames.some(name => sequentialTools.includes(name))) {
+      return false;
+    }
+
+    // If user registration is followed by pet registration, must be sequential
+    if (toolNames.includes('register_user') && toolNames.includes('register_pet')) {
+      return false;
+    }
+
+    // Multiple register_pet calls can run in parallel if user is already registered
+    if (toolNames.filter(name => name === 'register_pet').length > 1) {
+      return true;
+    }
+
+    // Other combinations of parallel-safe tools can run in parallel
+    return toolNames.every(name => parallelSafeTools.includes(name));
+  }
+
+  private serializeToolResult(toolResult: any, requestId: string): string {
+    try {
+      const toolContent = JSON.stringify(toolResult);
+      if (toolContent === '{}' || toolContent === 'null' || toolContent === 'undefined') {
+        return JSON.stringify({ ok: false, error: 'Empty tool result' });
+      }
+      return toolContent;
+    } catch (error) {
+      console.error(`[${requestId}] Failed to serialize tool result:`, error);
+      return JSON.stringify({ ok: false, error: 'Failed to serialize tool result' });
+    }
   }
 
   private validateMessages(messages: Anthropic.MessageParam[], requestId: string): void {
