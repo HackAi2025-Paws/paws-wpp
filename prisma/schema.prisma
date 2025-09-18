@@ -114,16 +114,17 @@ model Consultation {
   id               Int              @id @default(autoincrement())
   petId            Int
   userId           Int
+  chiefComplaint   String
   consultationType ConsultationType
   date             DateTime
-  chiefComplaint   String
   findings         String?
   diagnosis        String?
+  treatment        Treatment[]
+  vaccines         Vaccine[]
   nextSteps        String?
   additionalNotes  String?
+  nextConsultation DateTime?
   createdAt        DateTime         @default(now())
-  vaccines         Vaccine[]
-  treatment        Treatment[]
   pet              Pet              @relation(fields: [petId], references: [id])
   user             User             @relation(fields: [userId], references: [id])
 
