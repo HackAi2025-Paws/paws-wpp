@@ -86,6 +86,7 @@ export const GET = withAuth(async (req: NextRequest, token: JWTPayload) => {
     const petId = searchParams.get('petId');
     const userId = parseInt(token.sub, 10);
     const consultationId = searchParams.get('id');
+    const ownerId = searchParams.get('ownerId');
 
     if (consultationId) {
       const id = parseInt(consultationId, 10);
@@ -159,6 +160,61 @@ export const GET = withAuth(async (req: NextRequest, token: JWTPayload) => {
       return NextResponse.json(consultationResults);
     }
 
+    if (ownerId) {
+      const id = parseInt(ownerId, 10);
+      if (isNaN(id)) {
+        return NextResponse.json(
+          { error: 'ID de dueño inválido' },
+          { status: 400 }
+        );
+      }
+
+      // Primero obtener las mascotas del dueño
+      const petsOfOwner = await prisma.pet.findMany({
+        where: {
+          owners: {
+            some: { id }
+          }
+        },
+        select: { id: true }
+      });
+
+      if (!petsOfOwner.length) {
+        return NextResponse.json([]);
+      }
+
+      const petIds = petsOfOwner.map(pet => pet.id);
+
+      const consultations = await prisma.consultation.findMany({
+        where: {
+          petId: {
+            in: petIds
+          }
+        },
+        include: {
+          pet: {
+            include: {
+              owners: true,
+            },
+          },
+          user: true,
+          treatment: true,
+          vaccines: {
+            include: {
+              catalog: true,
+            },
+          },
+        },
+        orderBy: { date: 'desc' },
+      });
+
+      const consultationResults = consultations.map(consultation =>
+        mapConsultationToDTO(consultation)
+      );
+
+      return NextResponse.json(consultationResults);
+    }
+
     if (userId) {
       if (isNaN(userId)) {
         return NextResponse.json(
@@ -194,7 +250,7 @@ export const GET = withAuth(async (req: NextRequest, token: JWTPayload) => {
     }
 
     return NextResponse.json(
-      { error: 'Please provide petId, userId, or id query parameter' },
+      { error: 'Please provide petId, userId, ownerId, or id query parameter' },
       { status: 400 }
     );
   } catch (error) {
