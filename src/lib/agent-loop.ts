@@ -4,6 +4,8 @@ import { SessionStore, getSessionStore, UserMessage, AssistantMessage } from './
 import { ToolRegistry } from '@/lib/tools';
 import { ToolRunner } from '@/lib/tools';
 import { ToolContext, ToolResult } from '@/lib/tools';
+import { AiFindingService } from './ai-finding-service';
+import { AiFindingAnalyzer } from './ai-finding-analyzer';
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
@@ -61,6 +63,44 @@ export class AgentLoop {
     this.sessionStore = sessionStore || getSessionStore();
   }
 
+  private async getRelevantAiFindings(userText: string, phone: string): Promise<string | null> {
+    try {
+      // Use the AI finding analyzer to extract pet context
+      const aiFindingAnalyzer = new AiFindingAnalyzer();
+      const petContext = await aiFindingAnalyzer.extractPetContext(phone, userText);
+
+      if (!petContext.petId) {
+        return null;
+      }
+
+      // Get recent AI findings for this pet (last 5)
+      const findingsResult = await AiFindingService.getAiFindingsByPetId(petContext.petId);
+
+      if (!findingsResult.success || !findingsResult.data || findingsResult.data.length === 0) {
+        return null;
+      }
+
+      // Take the most recent 3 findings to avoid overwhelming the context
+      const recentFindings = findingsResult.data.slice(0, 3);
+
+      // Format findings as context
+      let context = `\n\n**HISTORIAL MÉDICO RELEVANTE - ${petContext.petName || `Mascota ID ${petContext.petId}`}:**\n`;
+
+      recentFindings.forEach((finding) => {
+        const date = new Date(finding.createdAt).toLocaleDateString('es-ES');
+        context += `\n• ${date}: ${finding.summary}\n  Detalle: ${finding.message}\n`;
+      });
+
+      context += `\n*Este historial es relevante para el contexto médico de la conversación.*\n`;
+
+      return context;
+
+    } catch (error) {
+      console.error('Error getting relevant AI findings:', error);
+      return null;
+    }
+  }
+
   async execute(phone: string, userText: string, messageId?: string): Promise<string> {
     const requestId = randomUUID();
     const startTime = Date.now();
@@ -83,11 +123,20 @@ export class AgentLoop {
       }
 
 
+      // Get relevant AI findings and append to user message if available
+      const relevantFindings = await this.getRelevantAiFindings(userText, phone);
+      const enhancedUserText = relevantFindings ? userText + relevantFindings : userText;
+
       // Append user message to session
       const userMessage: UserMessage = {
         role: 'user',
-        content: userText
+        content: enhancedUserText
       };
+
+      // Log if we're including medical history
+      if (relevantFindings) {
+        console.log(`[${requestId}] Including relevant medical history in conversation context`);
+      }
 
       let session = await this.sessionStore.append(phone, userMessage);
       console.log(`[${requestId}] Session loaded with ${session.messages.length} messages`);

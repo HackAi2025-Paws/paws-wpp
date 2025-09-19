@@ -40,7 +40,14 @@ export class AiFindingAnalyzer {
       console.log(`Pet context identified: ID ${petContext.petId}, confidence: ${petContext.confidence}`)
 
       // Get existing AI findings for this pet
-      const existingFindings = await AiFindingService.getAiFindingsByPetId(petContext.petId)
+      let existingFindings
+      try {
+        existingFindings = await AiFindingService.getAiFindingsByPetId(petContext.petId)
+      } catch (error) {
+        console.error('Error getting AI findings by pet id:', error)
+        console.log('Skipping AI finding analysis due to database error')
+        return
+      }
 
       if (!existingFindings.success) {
         console.error('Failed to retrieve existing AI findings:', existingFindings.error)
@@ -88,7 +95,7 @@ export class AiFindingAnalyzer {
     }
   }
 
-  private async extractPetContext(userPhone: string, messageContent: string): Promise<PetContext> {
+  public async extractPetContext(userPhone: string, messageContent: string): Promise<PetContext> {
     try {
       const sessionStore = getSessionStore()
       const session = await sessionStore.load(userPhone)
@@ -186,7 +193,7 @@ export class AiFindingAnalyzer {
       const prompt = this.buildAnalysisPrompt(messageContent, conversationHistory, existingFindings, petContext)
 
       const response = await this.anthropic.messages.create({
-        model: 'claude-3-5-sonnet-20241022',
+        model: 'claude-4-sonnet-20250514',
         max_tokens: 1000,
         messages: [
           {

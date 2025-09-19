@@ -110,6 +110,24 @@ export class AiFindingService {
 
   static async getAiFindingsByPetId(petId: number): Promise<AiFindingListResult> {
     try {
+      // Check if prisma is available
+      if (!prisma) {
+        console.error('Prisma client is not available')
+        return {
+          success: false,
+          error: 'Database client not available'
+        }
+      }
+
+      // Check if aiFinding model is available
+      if (!prisma.aiFinding) {
+        console.error('AiFinding model is not available on prisma client')
+        return {
+          success: false,
+          error: 'AiFinding model not available'
+        }
+      }
+
       const aiFindings = await prisma.aiFinding.findMany({
         where: { petId },
         orderBy: { createdAt: 'desc' }
