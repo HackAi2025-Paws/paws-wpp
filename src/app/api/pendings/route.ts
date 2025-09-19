@@ -77,13 +77,21 @@ export const POST = withAuth(async (req: NextRequest, token: JWTPayload) => {
 
     const data = result.data;
 
+    const defaultReminderConfig = data.date ? [
+      {
+        type: 'RELATIVE' as const,
+        offsetDays: -1,
+        time: '12:00'
+      }
+    ] : undefined;
+
     const pending = await prisma.pending.create({
       data: {
         title: data.title,
         description: data.description,
         status: PendingStatus.PENDING,
         location: data.location,
-        reminderConfig: data.reminderConfig,
+        reminderConfig: data.reminderConfig || defaultReminderConfig,
         category: data.category,
         date: data.date ? new Date(data.date) : null,
         userId: parseInt(token.sub),
@@ -91,7 +99,7 @@ export const POST = withAuth(async (req: NextRequest, token: JWTPayload) => {
       }
     });
 
-    if (data.reminderConfig) {
+    if (pending.date && (data.reminderConfig || defaultReminderConfig)) {
       try {
         await scheduleRemindersForPending(pending);
         console.log(`Recordatorios programados para la tarea pendiente ID: ${pending.id}`);
