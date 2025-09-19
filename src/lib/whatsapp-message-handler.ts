@@ -4,6 +4,7 @@ import { getSessionStore } from './session-store'
 import { getAudioTranscriptionService } from './audio-transcription-service'
 import { ToolRegistry } from './tools/registry'
 import { ToolRunner } from './tools/runner'
+import { getAiFindingAnalyzer } from './ai-finding-analyzer'
 
 export interface ProcessedMessage {
   type: 'text' | 'audio' | 'media'
@@ -45,6 +46,12 @@ export class WhatsAppMessageHandler {
     }
 
     try {
+      // Analyze message for AI findings (async, don't wait)
+      const analyzer = getAiFindingAnalyzer()
+      analyzer.analyzeMessage(message.from, message.content, message.messageId).catch(error => {
+        console.error('Error in AI finding analysis:', error)
+      })
+
       // Use AgentLoop to process the message with session management
       const agentLoop = getAgentLoop()
       const response = await agentLoop.execute(message.from, message.content, message.messageId)
@@ -82,6 +89,12 @@ export class WhatsAppMessageHandler {
       }
 
       console.log(`Audio transcribed from ${message.from}: "${transcriptionResult.transcript}" (confidence: ${transcriptionResult.confidence})`)
+
+      // Analyze transcribed message for AI findings (async, don't wait)
+      const analyzer = getAiFindingAnalyzer()
+      analyzer.analyzeMessage(message.from, transcriptionResult.transcript, message.messageId).catch(error => {
+        console.error('Error in AI finding analysis for audio:', error)
+      })
 
       const agentLoop = getAgentLoop()
       const response = await agentLoop.execute(message.from, transcriptionResult.transcript, message.messageId)

@@ -79,6 +79,7 @@ model Pet {
   pendings         Pending[]
   vaccines         Vaccine[]
   treatment        Treatment[]
+  aiFindings       AiFinding[]
 }
 
 model Pending {
@@ -194,4 +195,18 @@ model Treatment {
   @@index([authorId])
   @@index([petId])
   @@index([startDate])
+}
+
+model AiFinding {
+  id        Int      @id @default(autoincrement())
+  petId     Int
+  summary   String
+  message   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  pet Pet @relation(fields: [petId], references: [id])
+
+  @@index([petId])
+  @@index([createdAt])
 }
