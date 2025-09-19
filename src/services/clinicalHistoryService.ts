@@ -1,46 +1,12 @@
 import { prisma } from '@/lib/prisma'
+import Anthropic from '@anthropic-ai/sdk'
+
+const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
 
 export interface ClinicalSummary {
-  basic_information: {
-    id: number
-    name: string
-    species: string
-    sex?: string | null
-    weight?: number | null
-    breed?: string | null
-    dateOfBirth: string
-    age: string
-  }
-  history: {
-    vaccines: Array<{
-      id: number
-      vaccineName: string
-      applicationDate: string
-      expirationDate?: string | null
-      batchNumber?: string | null
-      notes?: string | null
-    }>
-    treatments: Array<{
-      id: number
-      name: string
-      startDate: string
-      endDate?: string | null
-      notes?: string | null
-    }>
-    known_allergies: string[]
-    medications: string[]
-  }
-  last_consultation: {
-    id: number
-    date: string
-    chiefComplaint: string
-    consultationType: string
-    findings?: string | null
-    diagnosis?: string | null
-    nextSteps?: string | null
-    additionalNotes?: string | null
-    nextConsultation?: string | null
-  } | null
+  basic_information: string
+  history: string
+  last_consultation: string
 }
 
 export interface ClinicalSummaryResult {
@@ -100,50 +66,97 @@ export class ClinicalHistoryService {
         }
       }
 
-      const speciesText = pet.species === 'DOG' ? 'Perro' : 'Gato'
-      const sexText = pet.sex === 'MALE' ? 'Macho' : pet.sex === 'FEMALE' ? 'Hembra' : null
-
-      const clinicalSummary: ClinicalSummary = {
-        basic_information: {
+      // Prepare structured data for AI processing
+      const petData = {
+        basic_info: {
           id: pet.id,
           name: pet.name,
-          species: speciesText,
-          sex: sexText,
-          weight: pet.weight,
-          breed: pet.breed,
-          dateOfBirth: pet.dateOfBirth.toISOString(),
-          age: this.calculateAge(pet.dateOfBirth),
+          species: pet.species === 'DOG' ? 'Perro' : 'Gato',
+          sex: pet.sex === 'MALE' ? 'Macho' : pet.sex === 'FEMALE' ? 'Hembra' : 'No especificado',
+          weight: pet.weight ? `${pet.weight} kg` : 'No registrado',
+          breed: pet.breed || 'No especificado',
+          dateOfBirth: pet.dateOfBirth.toLocaleDateString('es-ES'),
+          age: this.calculateAge(pet.dateOfBirth)
         },
-        history: {
-          vaccines: pet.vaccines.map(vaccine => ({
-            id: vaccine.id,
-            vaccineName: vaccine.catalog.name,
-            applicationDate: vaccine.applicationDate.toISOString(),
-            expirationDate: vaccine.expirationDate?.toISOString() || null,
-            batchNumber: vaccine.batchNumber,
-            notes: vaccine.notes
-          })),
-          treatments: pet.treatment.map(treatment => ({
-            id: treatment.id,
-            name: treatment.name,
-            startDate: treatment.startDate.toISOString(),
-            endDate: treatment.endDate?.toISOString() || null,
-            notes: treatment.notes
-          })),
-          known_allergies: [],
-          medications: []
-        },
-        last_consultation: pet.consultations.length > 0 ? {
-          id: pet.consultations[0].id,
-          date: pet.consultations[0].date.toISOString(),
-          chiefComplaint: pet.consultations[0].chiefComplaint,
-          consultationType: pet.consultations[0].consultationType,
+        vaccines: pet.vaccines.map(vaccine => ({
+          name: vaccine.catalog.name,
+          date: vaccine.applicationDate.toLocaleDateString('es-ES'),
+          expiration: vaccine.expirationDate?.toLocaleDateString('es-ES'),
+          batch: vaccine.batchNumber,
+          notes: vaccine.notes
+        })),
+        treatments: pet.treatment.map(treatment => ({
+          name: treatment.name,
+          startDate: treatment.startDate.toLocaleDateString('es-ES'),
+          endDate: treatment.endDate?.toLocaleDateString('es-ES'),
+          notes: treatment.notes
+        })),
+        lastConsultation: pet.consultations.length > 0 ? {
+          date: pet.consultations[0].date.toLocaleDateString('es-ES'),
+          complaint: pet.consultations[0].chiefComplaint,
+          type: pet.consultations[0].consultationType,
           findings: pet.consultations[0].findings,
           diagnosis: pet.consultations[0].diagnosis,
           nextSteps: pet.consultations[0].nextSteps,
-          additionalNotes: pet.consultations[0].additionalNotes,
-          nextConsultation: pet.consultations[0].nextConsultation?.toISOString() || null
+          notes: pet.consultations[0].additionalNotes,
+          nextConsultation: pet.consultations[0].nextConsultation?.toLocaleDateString('es-ES')
         } : null
+      }
+
+      // Generate AI-powered summary
+      const response = await anthropic.messages.create({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 2000,
+        temperature: 0.1,
+        messages: [{
+          role: 'user',
+          content: `Eres un veterinario profesional. Genera un resumen clínico profesional en español basado en los siguientes datos de la mascota.
+
+IMPORTANTE: Tu respuesta debe ser ÚNICAMENTE un JSON válido con exactamente este formato:
+
+{
+  "basic_information": "párrafo con información básica del paciente",
+  "history": "párrafo con historial de vacunas y tratamientos",
+  "last_consultation": "párrafo sobre la última consulta o 'Sin consultas previas' si no hay"
+}
+
+Datos de la mascota:
+${JSON.stringify(petData, null, 2)}
+
+RESPONDE SOLO EL JSON, SIN MARKDOWN, SIN TEXTO ADICIONAL, SIN EXPLICACIONES.`
+        }]
+      })
+
+      const content = response.content[0]
+      if (content.type !== 'text') {
+        throw new Error('Respuesta inesperada de la IA')
+      }
+
+      let summaryText = content.text.trim()
+
+      // Remove any markdown code blocks if present
+      if (summaryText.startsWith('```json')) {
+        summaryText = summaryText.replace(/```json\s*/, '').replace(/\s*```$/, '')
+      } else if (summaryText.startsWith('```')) {
+        summaryText = summaryText.replace(/```\s*/, '').replace(/\s*```$/, '')
+      }
+
+      summaryText = summaryText.trim()
+
+      let clinicalSummary: ClinicalSummary
+
+      try {
+        clinicalSummary = JSON.parse(summaryText)
+      } catch (parseError) {
+        console.error('AI response:', summaryText)
+        console.error('Parse error:', parseError)
+        throw new Error(`La IA no generó un JSON válido: ${parseError}`)
+      }
+
+      // Validate the response has the required fields
+      if (!clinicalSummary.basic_information || !clinicalSummary.history || !clinicalSummary.last_consultation) {
+        console.error('Invalid AI response structure:', clinicalSummary)
+        throw new Error('La respuesta de la IA no contiene todas las secciones requeridas')
       }
 
       return {
