@@ -1,9 +1,9 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { randomUUID } from 'crypto';
 import { SessionStore, getSessionStore, UserMessage, AssistantMessage } from './session-store';
-import { ToolRegistry } from './tools/registry';
-import { ToolRunner } from './tools/runner';
-import { ToolContext, ToolResult } from './tools/types';
+import { ToolRegistry } from '@/lib/tools';
+import { ToolRunner } from '@/lib/tools';
+import { ToolContext, ToolResult } from '@/lib/tools';
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
@@ -21,6 +21,7 @@ const createSystemPrompt = (): string => {
 GOALS
 - Interpret Spanish messages and call appropriate tools.
 - If the user asks about their name, their pet names, or general information about themselves, use get_user_info first.
+- If the user wants to add/upload/set a profile picture/photo for their pet, use add_pet_profile_picture tool.
 - If the user gives unclear dates (e.g., "2 años"), ask for a specific birth date using ask_user.
 - Keep all replies concise, WhatsApp-friendly, and actionable.
 

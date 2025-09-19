@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import { Pending } from '@prisma/client';
+import { Pending, Reminder } from '@prisma/client';
 import { ReminderConfig } from '@/types/reminder';
 
 export async function scheduleRemindersForPending(pending: Pending): Promise<void> {
@@ -24,6 +24,8 @@ export async function scheduleRemindersForPending(pending: Pending): Promise<voi
       }
     });
   }
+
+  console.log(`Programados ${reminderDates.length} recordatorios para la tarea "${pending.title}"`);
 }
 
 function calculateReminderDates(config: ReminderConfig, pending: Pending): Date[] {
@@ -111,7 +113,8 @@ function calculateReminderDates(config: ReminderConfig, pending: Pending): Date[
 
   return dates;
 }
-export async function processReminders(): Promise<void> {
+
+export async function processReminders(): Promise<Array<{id: number, pending: any}>> {
   const now = new Date();
   const fiveMinutesAgo = new Date(now);
   fiveMinutesAgo.setMinutes(now.getMinutes() - 5);
@@ -128,15 +131,17 @@ export async function processReminders(): Promise<void> {
       pending: {
         include: {
           user: {
-            select: { name: true, phone: true }
+            select: { id: true, name: true, phone: true }
           },
           pet: {
-            select: { name: true }
+            select: { id: true, name: true }
           }
         }
       }
     }
   });
+
+  const processedReminders = [];
 
   for (const reminder of dueReminders) {
     try {
@@ -145,15 +150,48 @@ export async function processReminders(): Promise<void> {
         where: { id: reminder.id },
         data: { sent: true }
       });
+      processedReminders.push({
+        id: reminder.id,
+        pending: {
+          id: reminder.pending.id,
+          title: reminder.pending.title
+        }
+      });
     } catch (error) {
       console.error(`Error enviando recordatorio ${reminder.id}:`, error);
     }
   }
+
+  return processedReminders;
 }
 
+// Envío de notificaciones
 async function sendReminderNotification(reminder: any): Promise<void> {
   const pending = reminder.pending;
   console.log(`Enviando recordatorio: ${pending.title}`);
   console.log(`Usuario: ${pending.user.name}, Teléfono: ${pending.user.phone}`);
   console.log(`Mascota: ${pending.pet.name}`);
+
+}
+
+export async function cancelRemindersForPending(pendingId: number): Promise<number> {
+  const result = await prisma.reminder.deleteMany({
+    where: {
+      pendingId: pendingId,
+      sent: false
+    }
+  });
+
+  return result.count;
+}
+
+export async function reschedulePendingReminders(pendingId: number): Promise<void> {
+  const pending = await prisma.pending.findUnique({
+    where: { id: pendingId }
+  });
+
+  if (!pending) {
+    throw new Error(`No se encontró la tarea con ID ${pendingId}`);
+  }
+  await scheduleRemindersForPending(pending);
 }

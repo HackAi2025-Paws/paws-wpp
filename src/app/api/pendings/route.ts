@@ -4,6 +4,7 @@ import { PendingCategory, PendingStatus } from '@prisma/client';
 import {JWTPayload, withAuth} from "@/middleware/auth-middleware";
 import { z } from 'zod';
 import {reminderConfigSchema} from "@/types/reminder";
+import { scheduleRemindersForPending, reschedulePendingReminders, cancelRemindersForPending } from '@/services/reminderService';
 
 export const GET = withAuth(async (req: NextRequest, token: JWTPayload) => {
   try {
@@ -90,6 +91,15 @@ export const POST = withAuth(async (req: NextRequest, token: JWTPayload) => {
       }
     });
 
+    if (data.reminderConfig) {
+      try {
+        await scheduleRemindersForPending(pending);
+        console.log(`Recordatorios programados para la tarea pendiente ID: ${pending.id}`);
+      } catch (reminderError) {
+        console.error('Error al programar recordatorios:', reminderError);
+      }
+    }
+
     return NextResponse.json(pending, { status: 201 });
   } catch (error) {
     console.error('Error al crear pending:', error);
@@ -144,6 +154,17 @@ export const PUT = withAuth(async (req: NextRequest, token: JWTPayload) => {
       }
     });
 
+    // Reprogramar recordatorios si se actualizó la configuración o la fecha
+    if (data.reminderConfig || data.date) {
+      try {
+        await reschedulePendingReminders(id);
+        console.log(`Recordatorios reprogramados para la tarea pendiente ID: ${id}`);
+      } catch (reminderError) {
+        console.error('Error al reprogramar recordatorios:', reminderError);
+        // No bloqueamos la actualización si falla la reprogramación
+      }
+    }
+
     return NextResponse.json(updatedPending);
   } catch (error) {
     console.error('Error al actualizar pending:', error);
@@ -183,6 +204,15 @@ export const DELETE = withAuth(async (req: NextRequest, token: JWTPayload) => {
         { error: 'No tienes permiso para eliminar esta tarea' },
         { status: 403 }
       );
+    }
+
+    // Cancelar los recordatorios pendientes antes de eliminar la tarea
+    try {
+      const canceledCount = await cancelRemindersForPending(pendingId);
+      console.log(`Se cancelaron ${canceledCount} recordatorios para la tarea ID: ${pendingId}`);
+    } catch (reminderError) {
+      console.error('Error al cancelar recordatorios:', reminderError);
+      // Continuamos con la eliminación aunque falle la cancelación de recordatorios
     }
 
     await prisma.pending.delete({

@@ -17,6 +17,10 @@
     "redis:logs": "docker-compose logs -f redis",
     "redis:dev": "docker-compose --profile dev up -d",
     "redis:reset": "docker-compose down && docker volume rm paws-wpp_redis_data 2>/dev/null || true && docker-compose up -d redis",
+    "azurite:up": "docker-compose up -d azurite",
+    "azurite:down": "docker-compose down azurite",
+    "azurite:logs": "docker-compose logs -f azurite",
+    "storage:reset": "docker-compose down && docker volume rm paws-wpp_azurite_data 2>/dev/null || true && docker-compose up -d azurite",
     "test:session": "tsx src/test-session.ts",
     "db:generate": "prisma generate --generator client",
     "db:migrate": "prisma migrate dev",
@@ -27,6 +31,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.62.0",
+    "@azure/storage-blob": "^12.28.0",
     "@deepgram/sdk": "^4.11.2",
     "@modelcontextprotocol/sdk": "^1.18.0",
     "@prisma/client": "^6.16.1",

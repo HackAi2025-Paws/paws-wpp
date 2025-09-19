@@ -9,6 +9,7 @@ import { ListConsultationsTool } from './list-consultations';
 import { GetConsultationTool } from './get-consultation';
 import { WebSearchTool } from './web-search';
 import { MapSearchTool } from './map-search';
+import { AddPetProfilePictureTool } from './add-pet-profile-picture';
 
 export class ToolRegistry {
   private tools = new Map<string, ToolHandler>();
@@ -24,6 +25,7 @@ export class ToolRegistry {
     this.tools.set('list_pets', new ListPetsTool());
     this.tools.set('list_consultations', new ListConsultationsTool());
     this.tools.set('get_consultation', new GetConsultationTool());
+    this.tools.set('add_pet_profile_picture', new AddPetProfilePictureTool());
 
     // Web search tool (conditional)
     this.webSearchTool = new WebSearchTool();
