@@ -51,6 +51,10 @@ export class SessionStore {
     }
   }
 
+  get redisClient(): RedisClientType {
+    return this.client;
+  }
+
   async disconnect(): Promise<void> {
     if (this.isConnected) {
       await this.client.disconnect();

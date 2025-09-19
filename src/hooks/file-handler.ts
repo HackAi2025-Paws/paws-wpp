@@ -62,9 +62,14 @@ export class FileHandler {
   }
 
   private generateUniqueFileName(originalName: string, fileId: string): string {
-    const ext = path.extname(originalName)
+    const ext = path.extname(originalName).toLowerCase()
     const timestamp = Date.now()
-    return `${timestamp}_${fileId}${ext}`
+    // Remove hyphens from UUID and ensure Azure Blob Storage compatibility
+    const sanitizedFileId = fileId.replace(/-/g, '')
+    // Azure blob names must be 1-1024 chars, only lowercase letters, numbers, hyphens, and dots
+    // Cannot start or end with hyphen, cannot have consecutive hyphens
+    const fileName = `${timestamp}${sanitizedFileId}${ext}`
+    return fileName.toLowerCase()
   }
 
   validateFile(buffer: Buffer, originalName: string, contentType: string): { valid: boolean; error?: string } {

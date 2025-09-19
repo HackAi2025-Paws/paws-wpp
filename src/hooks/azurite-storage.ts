@@ -43,7 +43,15 @@ export class AzuriteStorageHook {
 
       await blockBlobClient.upload(fileBuffer, fileBuffer.length, uploadOptions)
 
-      return blockBlobClient.url
+      const publicUrl = this.getPublicUrl(fileName)
+      const originalUrl = blockBlobClient.url
+
+      console.log(`✅ File uploaded successfully:`)
+      console.log(`   - File name: ${fileName}`)
+      console.log(`   - Original Azure URL: ${originalUrl}`)
+      console.log(`   - Public URL returned: ${publicUrl}`)
+
+      return publicUrl
     } catch (error) {
       console.error('❌ Error uploading file to Azurite:', error)
       throw error
@@ -120,6 +128,16 @@ export class AzuriteStorageHook {
   }
 
   getFileUrl(fileName: string): string {
+    return this.getPublicUrl(fileName)
+  }
+
+  private getPublicUrl(fileName: string): string {
+    const publicStorageUrl = process.env.PUBLIC_STORAGE_URL
+    if (publicStorageUrl) {
+      return `${publicStorageUrl}/${fileName}`
+    }
+
+    // Fallback to the original Azure blob URL if PUBLIC_STORAGE_URL is not set
     const containerClient = this.blobServiceClient.getContainerClient(this.containerName)
     const blockBlobClient = containerClient.getBlockBlobClient(fileName)
     return blockBlobClient.url

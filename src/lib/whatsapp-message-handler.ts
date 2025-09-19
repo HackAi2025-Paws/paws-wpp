@@ -204,9 +204,29 @@ export class WhatsAppMessageHandler {
               }
             }
 
-            // Fallback: let AI handle it
+            // Store the image data temporarily and let AI handle pet selection
+            const sessionStore = getSessionStore()
+            await sessionStore.connect()
+
+            // Store image data with a temporary key
+            const tempImageKey = `temp_image:${message.from}:${Date.now()}`
+            const imageData = {
+              buffer: base64Image,
+              filename: `temp_profile.${message.mediaType?.split('/')[1] || 'jpg'}`,
+              contentType: message.mediaType,
+              timestamp: Date.now()
+            }
+
+            try {
+              // Store for 10 minutes (600 seconds)
+              await sessionStore.redisClient.setEx(tempImageKey, 600, JSON.stringify(imageData))
+              console.log(`Stored temporary image data: ${tempImageKey}`)
+            } catch (error) {
+              console.error('Error storing temporary image:', error)
+            }
+
             const agentLoop = getAgentLoop()
-            const imageText = `El usuario ha enviado una imagen para foto de perfil pero no pude detectar qué mascota. Pregúntale cuál mascota quería actualizar.`
+            const imageText = `El usuario ha enviado una imagen para foto de perfil pero no pude detectar qué mascota. Pregúntale cuál mascota quería actualizar. IMAGEN_TEMP_KEY: ${tempImageKey}`
             const response = await agentLoop.execute(message.from, imageText, message.messageId)
             await WhatsAppService.sendMessage(message.from, response)
             return
