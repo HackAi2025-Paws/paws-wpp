@@ -481,8 +481,15 @@ export class PetService {
     return message.trim()
   }
 
-  static async searchPets(searchParams: { name?: string, breed?: string, ownerName?: string }): Promise<PetListResult> {
+  static async searchPets(
+    searchParams: { name?: string, breed?: string, ownerName?: string },
+    paginationParams: { page?: number, limit?: number } = {}
+  ): Promise<PetListResult & { pagination?: { total: number, page: number, limit: number, pages: number } }> {
     try {
+      const page = paginationParams.page || 1;
+      const limit = paginationParams.limit || 10;
+      const skip = (page - 1) * limit;
+
       const whereConditions: any = {
         AND: []
       };
@@ -505,9 +512,8 @@ export class PetService {
         });
       }
 
-      let ownerCondition = {};
       if (searchParams.ownerName) {
-        ownerCondition = {
+        whereConditions.AND.push({
           owners: {
             some: {
               name: {
@@ -516,18 +522,28 @@ export class PetService {
               }
             }
           }
-        };
-        whereConditions.AND.push(ownerCondition);
+        });
       }
 
       const finalWhereConditions = whereConditions.AND.length > 0 ? whereConditions : {};
 
+      // Obtener el total de registros para la paginación
+      const totalCount = await prisma.pet.count({
+        where: finalWhereConditions
+      });
+
+      // Obtener los registros paginados
       const pets = await prisma.pet.findMany({
         where: finalWhereConditions,
         include: {
           owners: true
-        }
+        },
+        skip,
+        take: limit,
+        orderBy: { id: 'asc' }
       });
+
+      const totalPages = Math.ceil(totalCount / limit);
 
       return {
         success: true,
@@ -544,7 +560,13 @@ export class PetService {
             name: owner.name,
             phone: owner.phone
           }))
-        }))
+        })),
+        pagination: {
+          total: totalCount,
+          page,
+          limit,
+          pages: totalPages
+        }
       };
     } catch (error) {
       console.error('Error searching pets:', error);
@@ -555,8 +577,16 @@ export class PetService {
     }
   }
 
-  static async getPetsByOwnerId(ownerId: number): Promise<PetListResult> {
+  static async getPetsByOwnerId(
+    ownerId: number,
+    paginationParams: { page?: number, limit?: number } = {}
+  ): Promise<PetListResult & { pagination?: { total: number, page: number, limit: number, pages: number } }> {
     try {
+      const page = paginationParams.page || 1;
+      const limit = paginationParams.limit || 10;
+      const skip = (page - 1) * limit;
+
+      // Verificar que el propietario existe
       const owner = await prisma.user.findUnique({
         where: { id: ownerId }
       });
@@ -568,6 +598,16 @@ export class PetService {
         };
       }
 
+      // Obtener el total de mascotas para la paginación
+      const totalCount = await prisma.pet.count({
+        where: {
+          owners: {
+            some: { id: ownerId }
+          }
+        }
+      });
+
+      // Obtener las mascotas paginadas
       const pets = await prisma.pet.findMany({
         where: {
           owners: {
@@ -584,8 +624,13 @@ export class PetService {
               applicationDate: 'desc'
             }
           }
-        }
+        },
+        skip,
+        take: limit,
+        orderBy: { id: 'asc' }
       });
+
+      const totalPages = Math.ceil(totalCount / limit);
 
       return {
         success: true,
@@ -602,7 +647,13 @@ export class PetService {
             name: owner.name,
             phone: owner.phone
           }))
-        }))
+        })),
+        pagination: {
+          total: totalCount,
+          page,
+          limit,
+          pages: totalPages
+        }
       };
     } catch (error) {
       console.error('Error getting pets by owner ID:', error);
