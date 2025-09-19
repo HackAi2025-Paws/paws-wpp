@@ -1,13 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { PetService } from '@/lib/pet-service'
+import { withAuth } from '@/middleware/auth-middleware'
 
-export async function POST(request: NextRequest) {
+export const POST = withAuth(async (request: NextRequest, token) => {
   try {
-    const { name, dateOfBirth, species, sex, weight, breed, ownerPhone } = await request.json()
+    const { name, dateOfBirth, species, sex, weight, breed } = await request.json()
 
-    if (!name || !dateOfBirth || !species || !sex || !weight || !breed || !ownerPhone) {
+    const ownerPhone = token.phone
+
+    if (!ownerPhone) {
       return NextResponse.json(
-        { error: 'Name, dateOfBirth, species, sex, weight, breed, and ownerPhone are required' },
+        { error: 'El token no contiene el número de teléfono del usuario' },
+        { status: 400 }
+      )
+    }
+
+    if (!name || !dateOfBirth || !species || !sex || !weight || !breed) {
+      return NextResponse.json(
+        { error: 'Name, dateOfBirth, species, sex, weight, y breed son requeridos' },
         { status: 400 }
       )
     }
@@ -29,4 +39,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     )
   }
-}
+})
