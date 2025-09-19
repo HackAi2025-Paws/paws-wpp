@@ -17,18 +17,9 @@ const PUBLIC_ROUTES = [
 ];
 
 function createCorsResponse(response: NextResponse, request: NextRequest) {
-  const origin = request.headers.get('origin');
+  const origin = request.headers.get('origin') ?? '';
 
-  // Allow all localhost origins
-  if (origin && origin.match(/^https?:\/\/localhost(:\d+)?$/)) {
-    response.headers.set('Access-Control-Allow-Origin', origin);
-  }
-
-  // permitir el origen a lo que viene a ser la plataforma vercel
-  if (origin == "https://paws-veterinarian.vercel.app") {
-    response.headers.set('Access-Control-Allow-Origin', origin);
-  }
-
+  response.headers.set('Access-Control-Allow-Origin', origin);
   response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   response.headers.set('Access-Control-Allow-Credentials', 'true');
