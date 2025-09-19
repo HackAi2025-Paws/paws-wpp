@@ -2,6 +2,77 @@ import { NextRequest, NextResponse } from 'next/server'
 import { PetService } from '@/lib/pet-service'
 import { withAuth } from '@/middleware/auth-middleware'
 
+export const GET = withAuth(async (request: NextRequest, token) => {
+  try {
+    // Obtener parámetros de búsqueda de la URL
+    const { searchParams } = new URL(request.url)
+    const name = searchParams.get('name') || undefined
+    const breed = searchParams.get('breed') || undefined
+    const ownerName = searchParams.get('ownerName') || undefined
+    const petId = searchParams.get('id')
+    const ownerId = searchParams.get('ownerId')
+
+    // Si se proporciona un ownerId, devolvemos todas las mascotas de ese propietario
+    if (ownerId) {
+      const id = parseInt(ownerId, 10)
+      if (isNaN(id)) {
+        return NextResponse.json(
+          { error: 'ID de propietario inválido' },
+          { status: 400 }
+        )
+      }
+
+      const result = await PetService.getPetsByOwnerId(id)
+      if (result.success) {
+        return NextResponse.json(result.data)
+      } else {
+        return NextResponse.json(
+          { error: result.error },
+          { status: 400 }
+        )
+      }
+    }
+
+    // Si se proporciona un ID, devolvemos los detalles de esa mascota específica
+    if (petId) {
+      const id = parseInt(petId, 10)
+      if (isNaN(id)) {
+        return NextResponse.json(
+          { error: 'ID de mascota inválido' },
+          { status: 400 }
+        )
+      }
+
+      const result = await PetService.getPetDetails(id)
+      if (result.success) {
+        return NextResponse.json(result.data)
+      } else {
+        return NextResponse.json(
+          { error: result.error },
+          { status: 404 }
+        )
+      }
+    }
+
+    // Si no hay ID, realizamos una búsqueda con los parámetros proporcionados
+    const result = await PetService.searchPets({ name, breed, ownerName })
+    if (result.success) {
+      return NextResponse.json(result.data)
+    } else {
+      return NextResponse.json(
+        { error: result.error },
+        { status: 400 }
+      )
+    }
+  } catch (error) {
+    console.error('Error searching pets:', error)
+    return NextResponse.json(
+      { error: 'Error al buscar mascotas' },
+      { status: 500 }
+    )
+  }
+})
+
 export const POST = withAuth(async (request: NextRequest, token) => {
   try {
     const { name, dateOfBirth, species, sex, weight, breed } = await request.json()
