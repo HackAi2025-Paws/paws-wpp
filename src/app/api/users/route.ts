@@ -1,5 +1,36 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { UserService } from '@/lib/user-service'
+import { withAuth } from '@/middleware/auth-middleware'
+
+export const GET = withAuth(async (request: NextRequest, token) => {
+  try {
+    const phone = token.phone
+
+    if (!phone) {
+      return NextResponse.json(
+        { error: 'No se encontró información de teléfono en el token' },
+        { status: 400 }
+      )
+    }
+
+    const result = await UserService.fetchUserByPhone(phone)
+
+    if (result.success) {
+      return NextResponse.json(result.data)
+    } else {
+      return NextResponse.json(
+        { error: result.error },
+        { status: 404 }
+      )
+    }
+  } catch (error) {
+    console.error('Error fetching user:', error)
+    return NextResponse.json(
+      { error: 'Error al obtener información del usuario' },
+      { status: 500 }
+    )
+  }
+})
 
 export async function POST(request: NextRequest) {
   try {
