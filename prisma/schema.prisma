@@ -66,18 +66,19 @@ model AuthToken {
 }
 
 model Pet {
-  id            Int            @id @default(autoincrement())
-  name          String
-  dateOfBirth   DateTime
-  species       Species
-  sex           Sex?
-  weight        Float?
-  breed         String?
-  owners        User[]         @relation("UserPets")
-  consultations Consultation[]
-  pendings      Pending[]
-  vaccines      Vaccine[]
-  treatment     Treatment[]
+  id               Int            @id @default(autoincrement())
+  name             String
+  dateOfBirth      DateTime
+  species          Species
+  sex              Sex?
+  weight           Float?
+  breed            String?
+  profileImageUrl  String?
+  owners           User[]         @relation("UserPets")
+  consultations    Consultation[]
+  pendings         Pending[]
+  vaccines         Vaccine[]
+  treatment        Treatment[]
 }
 
 model Pending {

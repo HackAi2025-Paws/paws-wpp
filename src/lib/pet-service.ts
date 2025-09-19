@@ -12,6 +12,7 @@ export interface PetRegistrationResult {
     sex?: Sex | null
     weight?: number | null
     breed?: string | null
+    profileImageUrl?: string | null
     owners: Array<{
       id: number
       name: string
@@ -32,6 +33,7 @@ export interface PetListResult {
     sex?: Sex | null
     weight?: number | null
     breed?: string | null
+    profileImageUrl?: string | null
     owners: Array<{
       id: number
       name: string
@@ -52,6 +54,7 @@ export interface PetDetailResult {
     sex?: Sex | null
     weight?: number | null
     breed?: string | null
+    profileImageUrl?: string | null
     owners: Array<{
       id: number
       name: string
@@ -218,6 +221,7 @@ export class PetService {
           sex: pet.sex,
           weight: pet.weight,
           breed: pet.breed,
+          profileImageUrl: pet.profileImageUrl,
           owners: pet.owners.map(owner => ({
             id: owner.id,
             name: owner.name,
@@ -285,6 +289,7 @@ export class PetService {
         sex: pet.sex,
         weight: pet.weight,
         breed: pet.breed,
+        profileImageUrl: pet.profileImageUrl,
         owners: pet.owners.map(owner => ({
           id: owner.id,
           name: owner.name,
@@ -331,6 +336,7 @@ export class PetService {
           sex: pet.sex,
           weight: pet.weight,
           breed: pet.breed,
+          profileImageUrl: pet.profileImageUrl,
           owners: pet.owners.map(owner => ({
             id: owner.id,
             name: owner.name,
@@ -397,6 +403,7 @@ export class PetService {
           sex: pet.sex,
           weight: pet.weight,
           breed: pet.breed,
+          profileImageUrl: pet.profileImageUrl,
           owners: pet.owners.map(owner => ({
             id: owner.id,
             name: owner.name,
@@ -448,6 +455,43 @@ export class PetService {
     }
   }
 
+
+  static async updatePetProfileImage(petId: number, profileImageUrl: string): Promise<PetRegistrationResult> {
+    try {
+      const pet = await prisma.pet.update({
+        where: { id: petId },
+        data: { profileImageUrl },
+        include: {
+          owners: true
+        }
+      })
+
+      return {
+        success: true,
+        data: {
+          id: pet.id,
+          name: pet.name,
+          dateOfBirth: pet.dateOfBirth.toISOString(),
+          species: pet.species,
+          sex: pet.sex,
+          weight: pet.weight,
+          breed: pet.breed,
+          profileImageUrl: pet.profileImageUrl,
+          owners: pet.owners.map(owner => ({
+            id: owner.id,
+            name: owner.name,
+            phone: owner.phone
+          }))
+        }
+      }
+    } catch (error) {
+      console.error('Error updating pet profile image:', error)
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Error desconocido al actualizar imagen de perfil'
+      }
+    }
+  }
 
   static calculateAge(dateOfBirth: Date): string {
     const today = new Date()
@@ -555,6 +599,7 @@ export class PetService {
           sex: pet.sex,
           weight: pet.weight,
           breed: pet.breed,
+          profileImageUrl: pet.profileImageUrl,
           owners: pet.owners.map(owner => ({
             id: owner.id,
             name: owner.name,
@@ -642,6 +687,7 @@ export class PetService {
           sex: pet.sex,
           weight: pet.weight,
           breed: pet.breed,
+          profileImageUrl: pet.profileImageUrl,
           owners: pet.owners.map(owner => ({
             id: owner.id,
             name: owner.name,
