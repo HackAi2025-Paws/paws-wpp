@@ -86,7 +86,16 @@ export const GET = withAuth(async (req: NextRequest, token: JWTPayload) => {
     const petId = searchParams.get('petId');
     const userId = parseInt(token.sub, 10);
     const consultationId = searchParams.get('id');
-    const ownerId = searchParams.get('ownerId');
+    let ownerId = searchParams.get('ownerId');
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true }
+    });
+
+    if (user?.role === 'CLIENT' && !ownerId) {
+      ownerId = token.sub;
+    }
 
     if (consultationId) {
       const id = parseInt(consultationId, 10);
