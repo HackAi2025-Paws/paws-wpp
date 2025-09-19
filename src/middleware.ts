@@ -24,6 +24,11 @@ function createCorsResponse(response: NextResponse, request: NextRequest) {
     response.headers.set('Access-Control-Allow-Origin', origin);
   }
 
+  // permitir el origen a lo que viene a ser la plataforma vercel
+  if (origin == "https://paws-veterinarian.vercel.app") {
+    response.headers.set('Access-Control-Allow-Origin', origin);
+  }
+
   response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   response.headers.set('Access-Control-Allow-Credentials', 'true');
